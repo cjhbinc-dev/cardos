@@ -1,0 +1,32 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/auth/confirm"
+  to = "/"
+  status = 200
+  force = false
+
+[functions]
+  node_bundler = "esbuild"
+  included_files = ["certs/**"]
+
+[functions."teller-daily-sync"]
+  schedule = "0 7 * * *"
+
+[functions."notify-daily"]
+  schedule = "0 8 * * *"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+
+[[headers]]
+  for = "/.netlify/functions/calendar-feed"
+  [headers.values]
+    Content-Type = "text/calendar; charset=utf-8"
+    Access-Control-Allow-Origin = "*"

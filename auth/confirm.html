@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CardOS</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0b0e15;
+      color: #e8eaf2;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .box { text-align: center; max-width: 360px; padding: 40px 24px; }
+    .logo {
+      width: 52px; height: 52px; border-radius: 14px;
+      background: linear-gradient(135deg, #5b7fff, #8B5CF6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; font-weight: 800; color: #fff;
+      margin: 0 auto 24px;
+    }
+    h2 { font-size: 20px; font-weight: 700; margin-bottom: 8px; }
+    p  { font-size: 14px; color: #7e8aaa; line-height: 1.6; }
+    .err { color: #ff5757; margin-top: 16px; font-size: 13px; }
+    .spinner {
+      width: 32px; height: 32px; margin: 24px auto 0;
+      border: 3px solid rgba(91,127,255,.2);
+      border-top-color: #5b7fff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <div class="logo">C</div>
+    <h2 id="heading">Signing you in…</h2>
+    <p id="sub">Verifying your link, just a moment.</p>
+    <div class="spinner" id="spinner"></div>
+    <div class="err" id="err"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script>
+    (async function () {
+      const params     = new URLSearchParams(window.location.search);
+      const token_hash = params.get('token_hash');
+      const type       = params.get('type') || 'email';
+
+      function fail(msg) {
+        document.getElementById('spinner').style.display = 'none';
+        document.getElementById('heading').textContent   = 'Link error';
+        document.getElementById('sub').textContent       = 'Redirecting to login in 3 s…';
+        document.getElementById('err').textContent       = msg;
+        setTimeout(() => { window.location.href = '/'; }, 3000);
+      }
+
+      if (!token_hash) {
+        fail('No token found — please use the full link from your invite.');
+        return;
+      }
+
+      // Fetch Supabase credentials from the backend
+      let supabaseUrl, supabaseAnonKey;
+      try {
+        const r   = await fetch('/.netlify/functions/get-config');
+        const cfg = await r.json();
+        supabaseUrl     = cfg.supabaseUrl;
+        supabaseAnonKey = cfg.supabaseAnonKey;
+      } catch (_) {
+        fail('Could not load app config.');
+        return;
+      }
+
+      if (!supabaseUrl || !supabaseAnonKey) {
+        fail('App not configured — contact the admin.');
+        return;
+      }
+
+      const supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+
+      // Step 4: verify the OTP — establishes the session in the browser
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+      if (error) {
+        fail(error.message);
+        return;
+      }
+
+      // Step 5: session is now live — head to the app.
+      // initAuth() will call getSession(), detect must_set_password:true,
+      // and show the "Create password" modal before allowing app access.
+      window.location.href = '/';
+    })();
+  </script>
+</body>
+</html>

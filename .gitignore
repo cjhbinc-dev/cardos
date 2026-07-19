@@ -1,0 +1,22 @@
+# Local Netlify folder
+.netlify
+
+# Teller mTLS certificates — never commit these
+/certs
+*.pem
+*.key
+
+# Local environment variables
+.env
+.env.*
+
+# Dependencies
+node_modules/
+
+# Stray backup files (kept locally, not tracked)
+index (13).html
+CardOS (1).html
+big-dreamers-materials.html
+
+# Claude session files
+.claude/

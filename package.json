@@ -1,0 +1,19 @@
+{
+  "name": "cardos",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "sync-amex": "node scripts/sync-amex-offers.js"
+  },
+  "dependencies": {
+    "@sendgrid/mail": "^8.1.4",
+    "@supabase/supabase-js": "^2.49.4",
+    "googleapis": "^140.0.0",
+    "node-html-parser": "^6.1.13",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "dotenv": "^17.4.2",
+    "puppeteer": "^24.42.0"
+  }
+}
