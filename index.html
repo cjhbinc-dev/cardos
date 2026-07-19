@@ -3143,13 +3143,26 @@ function saveOffer(){
   offers.push({id:'o'+Date.now(),cardId:g('fo-c'),merchant:g('fo-m'),description:g('fo-d'),savings:parseFloat(g('fo-s'))||0,expiresDate:g('fo-e'),status:'available',category:g('fo-cat')||'General',isHighValue:g('fo-hv')==='true',isEasyWin:g('fo-ew')==='true'});
   save();closeModal();renderOffers();
 }
-function delCard(id){
+async function delCard(id){
   if(!confirm('Delete this card?'))return;
   cards=cards.filter(c=>c.id!==id);
   save();
-  const sb=getSupabase();
-  if(sb)sb.from('cards').delete().eq('id',id).catch(()=>{});
   closeModal();renderDashboard();renderCards();
+  // Try anon-key delete first; fall back to service-key function for orphaned rows (user_id=null)
+  const sb=getSupabase();
+  if(sb){
+    const {error}=await sb.from('cards').delete().eq('id',id);
+    if(error){
+      // RLS blocked it (likely orphaned card with user_id=null) — use service-key function
+      try{
+        const r=await fetch('/.netlify/functions/delete-card',{
+          method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+          body:JSON.stringify({cardId:id})
+        });
+        if(!r.ok){const j=await r.json().catch(()=>({}));console.warn('delete-card function error:',j.error);}
+      }catch(e){console.warn('delete-card function unreachable:',e);}
+    }
+  }
 }
 function clearConnError(id){
   const conn=connections.find(c=>c.id===id);
@@ -3163,14 +3176,28 @@ function clearAllConnErrors(){
   save();renderConns();
   showToast(count?`✓ Cleared errors on ${count} connection${count>1?'s':''}`:'No errors to clear');
 }
-function delConn(id){
-  if(!confirm('Remove this connection?'))return;
+async function delConn(id){
+  const linked=cards.filter(c=>c.connectionId===id);
+  const msg=linked.length
+    ?`Remove this connection and delete ${linked.length} linked card${linked.length>1?'s':''}?`
+    :'Remove this connection?';
+  if(!confirm(msg))return;
+  // Remove linked cards locally
+  cards=cards.filter(c=>c.connectionId!==id);
   connections=connections.filter(c=>c.id!==id);
   save();
-  // Also delete from Supabase
+  renderConns();renderDashboard();
+  // Delete from Supabase — use service-key function to handle orphaned rows
+  if(linked.length){
+    try{
+      await fetch('/.netlify/functions/delete-card',{
+        method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+        body:JSON.stringify({connectionId:id})
+      });
+    }catch(e){console.warn('delete-card (conn) unreachable:',e);}
+  }
   const sb=getSupabase();
   if(sb) sb.from('connections').delete().eq('id',id).then(()=>{});
-  renderConns();
 }
 
 async function dedupConnections(){
