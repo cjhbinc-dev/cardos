@@ -1,0 +1,6 @@
+# Block stray backup files — force these even when the file exists on disk
+/index%20(13).html        /index.html   404!
+/index (13).html          /index.html   404!
+/CardOS%20(1).html        /index.html   404!
+/CardOS (1).html          /index.html   404!
+/big-dreamers-materials.html  /index.html   404!
