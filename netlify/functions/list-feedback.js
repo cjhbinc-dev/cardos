@@ -10,7 +10,18 @@ const CORS = {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
 
+  // ── Auth: admin only ───────────────────────────────────────────────────────
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  const _authHeader = event.headers.authorization || event.headers.Authorization || '';
+  const _jwt = _authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!_jwt) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Authorization required' }) };
+  const { data: { user: _caller }, error: _callerErr } = await supabase.auth.getUser(_jwt);
+  if (_callerErr || !_caller) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Invalid session' }) };
+  const _adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+  if (!_adminEmail || _caller.email?.toLowerCase() !== _adminEmail) {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'Admin only' }) };
+  }
+  // ── End Auth ───────────────────────────────────────────────────────────────
 
   // POST: mark a single item as read
   if (event.httpMethod === 'POST') {

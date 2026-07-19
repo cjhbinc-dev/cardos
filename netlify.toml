@@ -8,6 +8,25 @@
   status = 200
   force = false
 
+# Block stray backup files from being publicly served
+[[redirects]]
+  from = "/index (13).html"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/CardOS (1).html"
+  to = "/404"
+  status = 404
+  force = true
+
+[[redirects]]
+  from = "/big-dreamers-materials.html"
+  to = "/404"
+  status = 404
+  force = true
+
 [functions]
   node_bundler = "esbuild"
   included_files = ["certs/**"]

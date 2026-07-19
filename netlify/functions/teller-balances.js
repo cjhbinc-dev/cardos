@@ -1,42 +1,11 @@
-const { createClient } = require('@supabase/supabase-js');
-const { tellerRequest, CORS } = require('./lib/teller-client');
-
-async function getAccessToken(supabase, connectionId) {
-  const { data: connRow } = await supabase.from('connections').select('data').eq('id', connectionId).single();
-  if (!connRow?.data?.enrollmentId) throw new Error('Connection not found');
-  const { data: enrollment } = await supabase
-    .from('enrollments').select('access_token').eq('enrollment_id', connRow.data.enrollmentId).single();
-  if (!enrollment?.access_token) throw new Error('Enrollment not found');
-  return enrollment.access_token;
-}
-
+// This endpoint is no longer used by the frontend (superseded by teller-sync.js).
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Content-Type': 'application/json',
+};
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
-
-  const { connectionId, accountId } = JSON.parse(event.body || '{}');
-  if (!connectionId || !accountId) {
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'connectionId and accountId are required' }) };
-  }
-
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
-    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Supabase not configured' }) };
-  }
-
-  try {
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-    const accessToken = await getAccessToken(supabase, connectionId);
-    const balance = await tellerRequest(`/accounts/${accountId}/balances`, accessToken);
-    return {
-      statusCode: 200,
-      headers: CORS,
-      body: JSON.stringify({ balance }),
-    };
-  } catch (err) {
-    const disconnected = err.disconnected || false;
-    return {
-      statusCode: disconnected ? 401 : 500,
-      headers: CORS,
-      body: JSON.stringify({ error: err.message, disconnected }),
-    };
-  }
+  return { statusCode: 410, headers: CORS, body: JSON.stringify({ error: 'Gone — use teller-sync instead' }) };
 };

@@ -61,6 +61,23 @@ function rawTellerRequest(urlPath, accessToken, certOpts) {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
 
+  // ── Auth: require valid Supabase JWT ───────────────────────────────────────
+  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
+    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Supabase not configured' }) };
+  }
+  const _sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+  const _authHeader = event.headers.authorization || event.headers.Authorization || '';
+  const _jwt = _authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!_jwt) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Authorization required' }) };
+  const { data: { user: _caller }, error: _callerErr } = await _sb.auth.getUser(_jwt);
+  if (_callerErr || !_caller) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Invalid session' }) };
+  const _requestedUserId = event.queryStringParameters?.userId;
+  const _adminEmail = (process.env.ADMIN_EMAIL || '').toLowerCase();
+  if (_requestedUserId && _requestedUserId !== _caller.id && _caller.email?.toLowerCase() !== _adminEmail) {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'Cannot diagnose another user\'s account' }) };
+  }
+  // ── End Auth ───────────────────────────────────────────────────────────────
+
   const userId = event.queryStringParameters?.userId || null;
   const report = { userId, steps: [], summary: '' };
 

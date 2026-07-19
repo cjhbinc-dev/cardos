@@ -43,8 +43,9 @@ exports.handler = async (event) => {
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
   const user = await getUserFromJWT(supabase, event);
-  const userId = user?.id || null;
-  console.log('[tx] userId:', userId || '(no JWT)');
+  if (!user) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Authorization required' }) };
+  const userId = user.id;
+  console.log('[tx] userId:', userId);
 
   try {
     // Get enrollments — look up by connection's enrollmentId first (handles orphaned rows)

@@ -20,16 +20,24 @@ const CORS = {
 exports.handler = async (event) => {
   if (event.httpMethod === 'OPTIONS') return { statusCode: 200, headers: CORS, body: '' };
 
-  const userId = event.queryStringParameters?.userId;
-  if (!userId) {
-    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'userId query param required' }) };
-  }
-
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Supabase not configured' }) };
   }
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
+
+  // ── Auth: require valid Supabase JWT; userId param must match caller ───────
+  const _authHeader = event.headers.authorization || event.headers.Authorization || '';
+  const _jwt = _authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!_jwt) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Authorization required' }) };
+  const { data: { user: _caller }, error: _callerErr } = await supabase.auth.getUser(_jwt);
+  if (_callerErr || !_caller) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Invalid session' }) };
+  // ── End Auth ───────────────────────────────────────────────────────────────
+
+  const userId = _caller.id;
+  if (!userId) {
+    return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'userId query param required' }) };
+  }
   const report = { userId, fixed: [], alreadyLinked: [], noConnectionsFound: false };
 
   // 1. Get all connections for this user to find their enrollmentIds
