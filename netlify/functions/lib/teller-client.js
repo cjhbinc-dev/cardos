@@ -6,22 +6,25 @@ function getCertOptions() {
   const certB64 = process.env.TELLER_CERT_B64 || '';
   const keyB64 = process.env.TELLER_KEY_B64 || '';
   if (certB64 && keyB64) {
-    return {
-      cert: Buffer.from(certB64, 'base64').toString('utf8'),
-      key: Buffer.from(keyB64, 'base64').toString('utf8'),
-    };
+    const cert = Buffer.from(certB64, 'base64').toString('utf8');
+    const key  = Buffer.from(keyB64, 'base64').toString('utf8');
+    console.log('[cert] source: b64 | loaded: true | cert bytes:', cert.length, '| key bytes:', key.length);
+    return { cert, key };
   }
 
   const certPath = process.env.TELLER_CERT_PATH || '';
   const keyPath = process.env.TELLER_KEY_PATH || '';
-  if (!certPath || !keyPath) return {};
+  if (!certPath || !keyPath) {
+    console.error('[cert] source: none | loaded: false — no B64 or PATH vars set');
+    return {};
+  }
 
   // If the env var itself contains PEM data, use it directly
   if (certPath.includes('-----BEGIN') && keyPath.includes('-----BEGIN')) {
-    return {
-      cert: certPath.replace(/\\n/g, '\n'),
-      key: keyPath.replace(/\\n/g, '\n'),
-    };
+    const cert = certPath.replace(/\\n/g, '\n');
+    const key  = keyPath.replace(/\\n/g, '\n');
+    console.log('[cert] source: path-inline | loaded: true | cert bytes:', cert.length, '| key bytes:', key.length);
+    return { cert, key };
   }
 
   // Try multiple base directories — process.cwd() is unreliable in AWS Lambda
@@ -37,14 +40,14 @@ function getCertOptions() {
     try {
       const cert = fs.readFileSync(path.resolve(base, certPath));
       const key  = fs.readFileSync(path.resolve(base, keyPath));
-      console.log('[teller-client] Loaded cert from base:', base);
+      console.log('[cert] source: path | loaded: true | base:', base, '| cert bytes:', cert.length, '| key bytes:', key.length);
       return { cert, key };
     } catch (_) {
       // try next base
     }
   }
 
-  console.error('[teller-client] Could not find cert — tried bases:', baseDirs.join(', '), '| certPath:', certPath);
+  console.error('[cert] source: path | loaded: false — tried bases:', baseDirs.join(', '), '| certPath:', certPath);
   return {};
 }
 
