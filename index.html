@@ -3148,12 +3148,14 @@ async function delCard(id){
   cards=cards.filter(c=>c.id!==id);
   save();
   closeModal();renderDashboard();renderCards();
-  // Try anon-key delete first; fall back to service-key function for orphaned rows (user_id=null)
+  // Try anon-key delete first; fall back to service-key function when RLS blocks it.
+  // .select('id') makes Supabase return deleted rows — empty array means 0 rows affected
+  // (RLS silent no-op), which is indistinguishable from an error for our purposes.
   const sb=getSupabase();
   if(sb){
-    const {error}=await sb.from('cards').delete().eq('id',id);
-    if(error){
-      // RLS blocked it (likely orphaned card with user_id=null) — use service-key function
+    const {data:_deleted,error}=await sb.from('cards').delete().eq('id',id).select('id');
+    if(error||!_deleted?.length){
+      // RLS blocked it (0 rows affected) or real error — use service-key function
       try{
         const r=await fetch('/.netlify/functions/delete-card',{
           method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
