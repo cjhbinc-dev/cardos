@@ -195,7 +195,7 @@ async function sendAlertsForUser(supabase, userEmail, cards, gmailCtx) {
   }
 
   const today = new Date().toISOString().slice(0, 10);
-  const highUtil = activeCards.filter(c => !c.isBusiness && c.limit > 0 && utilPct(c) > 30 && c.lastSync === today && c.syncMethod === 'teller');
+  const highUtil = activeCards.filter(c => !c.isBusiness && c.limit > 0 && utilPct(c) > 30 && c.lastSync === today);
   if (highUtil.length) {
     const rows = highUtil.map(c => {
       const pct = utilPct(c);

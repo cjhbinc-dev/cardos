@@ -1,2 +1,2 @@
-// Removed — replaced by teller-sync.js.
-exports.handler = async () => ({ statusCode: 410, body: 'Replaced by teller-sync.' });
+// Removed — Plaid is not in use.
+exports.handler = async () => ({ statusCode: 410, body: 'Gone.' });

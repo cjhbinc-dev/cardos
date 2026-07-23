@@ -22,28 +22,7 @@ exports.handler = async () => {
     results.emailParseError = e.message;
   }
 
-  // 2. Sync all Teller connections
-  try {
-    const { createClient } = require('@supabase/supabase-js');
-    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
-    const { data: connRows } = await supabase.from('connections').select('data');
-    const tellerConns = (connRows || []).map(r => r.data).filter(c => c.type === 'teller' && c.enrollmentId);
-
-    for (const conn of tellerConns) {
-      const r = await fetch(`${BASE}/teller-sync`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ connectionId: conn.id }),
-      });
-      const syncResult = await r.json();
-      console.log(`Teller sync ${conn.label}:`, syncResult);
-    }
-    results.tellerSynced = tellerConns.length;
-  } catch (e) {
-    results.tellerSyncError = e.message;
-  }
-
-  // 3. Send due date notifications
+  // 2. Send due date notifications
   try {
     const r = await fetch(`${BASE}/notify-email`, {
       method: 'POST',

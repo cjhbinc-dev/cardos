@@ -29,10 +29,6 @@
 
 [functions]
   node_bundler = "esbuild"
-  included_files = ["certs/**"]
-
-[functions."teller-daily-sync"]
-  schedule = "0 7 * * *"
 
 [functions."notify-daily"]
   schedule = "0 8 * * *"

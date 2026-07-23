@@ -304,7 +304,7 @@ exports.handler = async (event) => {
           if (changed) {
             card.lastSync = emailDate;
             card.syncStatus = 'ok';
-            card.syncMethod = card.syncMethod === 'teller' ? 'teller' : 'email';
+            card.syncMethod = 'email';
             await supabase.from('cards').upsert({ id: card.id, data: card });
             results.push({ card: card.name, last4: card.last4, bank: bank.name, emailDate, ...parsed });
           }

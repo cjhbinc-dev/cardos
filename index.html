@@ -6,7 +6,6 @@
 <title>CardOS — Credit Card Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
-<script src="https://cdn.teller.io/connect/connect.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
@@ -173,7 +172,6 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 .m-manual{background:var(--bg4);color:var(--text2);border-color:var(--border2)}
 .m-email{background:var(--blue-bg);color:var(--blue);border-color:rgba(37,99,235,.2)}
 .m-aggregator{background:var(--purple-bg);color:var(--purple);border-color:rgba(124,58,237,.2)}
-.m-teller{background:var(--green-bg);color:var(--green);border-color:rgba(22,163,74,.2)}
 .m-browser{background:var(--amber-bg);color:var(--amber);border-color:rgba(217,119,6,.2)}
 
 /* ── Alerts ── */
@@ -1071,7 +1069,6 @@ body{background:var(--bg)}
       <option value="other">📦 Other</option>
     </select>
     <select id="tx-month" onchange="renderTransactions()"><option value="">All time</option></select>
-    <button id="tx-refresh-btn" class="btn btn-sm btn-primary" onclick="fetchTransactions()">↻ Refresh from Teller</button>
     <button class="btn btn-sm" onclick="exportTransactionsCsv()" style="margin-left:auto">↓ CSV</button>
   </div>
   <div class="stat-grid" id="tx-stats" style="margin-bottom:16px"></div>
@@ -1321,7 +1318,7 @@ body{background:var(--bg)}
 
 <!-- ─── CONNECTIONS ─── -->
 <div class="page" id="pg-connections">
-  <div class="vault-note"><strong style="color:var(--text)">Security model:</strong> Credentials are never stored in this app. Each connection stores only a reference ID. Access tokens from Teller's hosted Connect flow are stored server-side in Supabase and never returned to the browser. Your bank password is never seen here.</div>
+  <div class="vault-note"><strong style="color:var(--text)">Security model:</strong> Credentials are never stored in this app. Card data is synced via email receipts or entered manually. Your bank password is never seen here.</div>
   <div id="conn-list"></div>
   <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center">
     <button class="btn btn-sm btn-primary" onclick="openModal('conn')">+ Add connection</button>
@@ -1411,22 +1408,7 @@ grant select, insert, update, delete on cards, connections, offers, notification
 
     <div>
       <div class="setup-section">
-        <div class="setup-title"><span class="setup-num">3</span>Connect cards via Teller</div>
-        <div class="plaid-card">
-          <p style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:12px">Teller connects your real bank and credit card accounts. Your credentials go directly to your bank through Teller's hosted Connect UI — CardOS never sees your password. mTLS certificates authenticate every API call.</p>
-          <div class="plaid-steps">
-            <div class="step-box"><div class="step-num">A</div><div class="step-title">Sandbox (active)</div><div class="step-desc">Use applicationId: "sandbox". No credentials needed. Working now with TELLER_APPLICATION_ID=sandbox.</div></div>
-            <div class="step-box"><div class="step-num">B</div><div class="step-title">Development</div><div class="step-desc">Real banks. Set TELLER_APPLICATION_ID from teller.io dashboard and add mTLS cert/key as env vars.</div></div>
-            <div class="step-box"><div class="step-num">C</div><div class="step-title">Production</div><div class="step-desc">Live accounts. Set TELLER_CERT_PATH and TELLER_KEY_PATH to your Teller mTLS cert and private key.</div></div>
-          </div>
-          <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-sm btn-primary" onclick="closeModal&&closeModal();nav('connections',document.querySelector('.nav-btn:nth-child(9)'));setTimeout(()=>document.querySelector('[onclick*=openTellerConnect]')?.click(),100)">+ Connect a bank now</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="setup-section">
-        <div class="setup-title"><span class="setup-num">4</span>Google Calendar sync</div>
+        <div class="setup-title"><span class="setup-num">3</span>Google Calendar sync</div>
         <div class="plaid-card">
           <p style="font-size:13px;color:var(--text2);line-height:1.8;margin-bottom:10px">
             <strong style="color:var(--text)">One click:</strong> Subscribe to a live iCal feed — updates automatically every day with all due dates, statement closes, and annual fees. Works with Google Calendar, Apple Calendar, and Outlook.
@@ -1446,7 +1428,7 @@ grant select, insert, update, delete on cards, connections, offers, notification
       </div>
 
       <div class="setup-section">
-        <div class="setup-title"><span class="setup-num">5</span>App configuration</div>
+        <div class="setup-title"><span class="setup-num">4</span>App configuration</div>
         <div class="plaid-card">
           <div id="cfg-status" style="margin-bottom:10px;font-size:12px;color:var(--text2)"></div>
           <div class="form-grid">
@@ -1738,7 +1720,6 @@ async function initAuth() {
         // would wipe localStorage with empty Supabase results (orphaned rows)
         if (event === 'SIGNED_IN') {
           // Repair orphaned rows first so the sync finds this user's data
-          fetch('/.netlify/functions/teller-repair', { headers: getAuthHeaders() }).catch(() => {});
           syncFromSupabase();
         }
       } else if (event === 'SIGNED_OUT') {
@@ -2099,7 +2080,7 @@ function utilClass(u,biz){if(biz)return'util-low';return u>=30?'util-high':u>=10
 const UC={high:'var(--red)',med:'var(--amber)',low:'var(--green)'};
 function utilColor(u,biz){if(biz)return'var(--blue)';return u>=30?UC.high:u>=10?UC.med:UC.low}
 function utilBadge(u,biz){const b=biz?'bg-blue':u>=30?'bg-red':u>=10?'bg-amber':'bg-green';return`<span class="badge ${b}">${pct(u)}</span>`}
-function methodPill(m){const map={manual:'m-manual Manual',email:'m-email Email',aggregator:'m-aggregator Aggregator',teller:'m-teller Teller',browser:'m-browser Browser'};const[cls,lbl]=(map[m]||'m-manual Manual').split(' ');return`<span class="method-pill ${cls}">${lbl}</span>`}
+function methodPill(m){const map={manual:'m-manual Manual',email:'m-email Email',aggregator:'m-aggregator Aggregator',browser:'m-browser Browser'};const[cls,lbl]=(map[m]||'m-manual Manual').split(' ');return`<span class="method-pill ${cls}">${lbl}</span>`}
 function issBadge(id){const i=getIss(id);return`<div class="iss-badge" style="background:${i.bg};color:${i.color}">${i.short}</div>`}
 
 // ═══════════════════════════════════════════════════════
@@ -2236,7 +2217,7 @@ function renderDashboard(){
   if(dq)dq.textContent=DISCIPLINE_QUOTES[_disciplineIdx];
 
   if(!cards.length){
-    document.getElementById('dash-cards').innerHTML=`<div class="dc-wrap"><div style="padding:48px 32px;text-align:center"><div style="font-size:32px;margin-bottom:12px">💳</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">No cards yet</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">Connect your bank accounts or add cards manually to get started.</div><div style="display:flex;gap:8px;justify-content:center"><button class="btn btn-sm btn-primary" onclick="openModal('conn')">Connect via Teller</button><button class="btn btn-sm" onclick="openModal('card')">Add manually</button></div></div></div>`;
+    document.getElementById('dash-cards').innerHTML=`<div class="dc-wrap"><div style="padding:48px 32px;text-align:center"><div style="font-size:32px;margin-bottom:12px">💳</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">No cards yet</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">Connect your bank accounts or add cards manually to get started.</div><div style="display:flex;gap:8px;justify-content:center"><button class="btn btn-sm btn-primary" onclick="openModal('card')">Add a card</button></div></div></div>`;
   } else {
     const hdr=`<div class="dc-hdr">
       <div style="width:44px;flex-shrink:0"></div>
@@ -2336,7 +2317,7 @@ function cardHTML(c,idx){
       <div class="meta-box"><div class="meta-lbl">Stmt close</div><div class="meta-val">${fmtD(c.statementClose)}<br><span style="font-size:10px;color:var(--text2)">${v.closeIn!==null?v.closeIn+'d':''}</span></div></div>
     </div>
     <div class="card-foot">
-      <div class="sync-row"><div class="sdot" style="background:${sdotColor}"></div>${c.syncMethod==='teller'?'Teller synced':c.syncMethod==='manual'?'Manual entry':'Email sync'}${c.lastSync?' · '+fmtD(c.lastSync):''}${c.syncError?`<span style="color:var(--red)"> · ${esc(friendlyTellerError(c.syncError))}</span>`:''}</div>
+      <div class="sync-row"><div class="sdot" style="background:${sdotColor}"></div>${c.syncMethod==='manual'?'Manual entry':'Email sync'}${c.lastSync?' · '+fmtD(c.lastSync):''}${c.syncError?`<span style="color:var(--red)"> · ${esc(c.syncError)}</span>`:''}</div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-xs" onclick="openModal('card-edit','${c.id}')">Edit</button>
         <button class="btn btn-xs" onclick="showDetail('${c.id}')">Detail</button>
@@ -2363,7 +2344,7 @@ function renderCards(){
     return 0;});
   const el=document.getElementById('cards-list');
   if(!cards.length){
-    el.innerHTML=`<div class="empty"><span class="empty-icon">💳</span>No cards yet.<br><span style="font-size:13px;color:var(--text3)">Connect your accounts or add cards manually to get started.</span><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-sm btn-primary" onclick="openModal('conn')">Connect via Teller</button><button class="btn btn-sm" onclick="openModal('card')">Add manually</button></div></div>`;
+    el.innerHTML=`<div class="empty"><span class="empty-icon">💳</span>No cards yet.<br><span style="font-size:13px;color:var(--text3)">Add cards manually to get started.</span><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-sm btn-primary" onclick="openModal('card')">Add a card</button></div></div>`;
   } else if(!cs.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">🔍</span>No cards match your filters.</div>';
   } else {
@@ -2600,7 +2581,7 @@ function toggleConnGroup(gi){
 
 function renderConns(){
   const el=document.getElementById('conn-list');
-  if(!connections.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔌</span>No connections yet. Add a Teller bank connection or set cards to manual sync.</div>';return;}
+  if(!connections.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔌</span>No connections yet. Add cards manually or via Gmail sync.</div>';return;}
 
   // Show dedup button if duplicates exist
   const dupWrap=document.getElementById('dedup-btn-wrap');
@@ -2622,7 +2603,7 @@ function renderConns(){
   });
 
   const sBadge=s=>({ok:'<span class="badge bg-green">Connected</span>',error:'<span class="badge bg-red">Error</span>',disconnected:'<span class="badge bg-red">Disconnected</span>',pending:'<span class="badge bg-amber">Pending</span>'}[s]||'<span class="badge bg-gray">Manual</span>');
-  const tIcon={teller:'🔒',email:'📧',aggregator:'🏦',manual:'✏️',browser:'🤖'};
+  const tIcon={email:'📧',aggregator:'🏦',manual:'✏️',browser:'🤖'};
 
   el.innerHTML=Object.entries(groups).map(([grpName,conns],gi)=>{
     const hasErr=conns.some(c=>c.syncStatus==='error'||c.syncStatus==='disconnected');
@@ -2647,12 +2628,12 @@ function renderConns(){
           const linked=cards.filter(c=>c.connectionId===conn.id);
           return`<div style="padding:14px 20px${ci>0?';border-top:1px solid var(--border)':''}">
             <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-              <div style="flex:1"><span style="font-size:13px;font-weight:600;color:var(--text)">${esc(conn.label)}</span>${conn.syncError?`<div style="font-size:11px;color:var(--red);margin-top:2px">⚠ ${esc(friendlyTellerError(conn.syncError))}</div>`:''}</div>
+              <div style="flex:1"><span style="font-size:13px;font-weight:600;color:var(--text)">${esc(conn.label)}</span>${conn.syncError?`<div style="font-size:11px;color:var(--red);margin-top:2px">⚠ ${esc(conn.syncError)}</div>`:''}</div>
               ${sBadge(conn.syncStatus)}
             </div>
             ${linked.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${linked.map(c=>`<span class="badge bg-blue">${esc(c.name)} ••${c.last4}</span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--text3);margin-bottom:8px">No cards linked yet</div>'}
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
-              ${(conn.syncStatus==='disconnected'||(conn.syncStatus==='error'&&conn.syncError&&(conn.syncError.includes('enrollment.disconnected')||conn.syncError.includes('mfa_required')||conn.syncError.includes('oauth_required'))))?`<button class="btn btn-xs btn-primary" onclick="openTellerConnect('${conn.id}')">↺ Reconnect</button><button class="btn btn-xs" onclick="openTellerConnect('${conn.id}',true)" title="If reconnect shows unable to connect, try this">↺ Fresh connect</button>`:`<button class="btn btn-xs" onclick="tellerSync('${conn.id}')">↻ Sync now</button>`}
+
               ${conn.syncError?`<button class="btn btn-xs" onclick="clearConnError('${conn.id}')">✕ Clear error</button>`:''}
               <span style="font-size:11px;color:var(--text3)">Last sync: ${conn.lastSync?fmtD(conn.lastSync):'never'}</span>
               <button class="btn btn-xs btn-danger" style="margin-left:auto" onclick="delConn('${conn.id}')">Remove</button>
@@ -2664,296 +2645,7 @@ function renderConns(){
   }).join('');
 }
 
-// ═══════════════════════════════════════════════════════
-// TELLER — Connect flow via Netlify Functions
-// ═══════════════════════════════════════════════════════
 
-// Translate raw Teller error codes into human-readable messages
-function friendlyTellerError(code) {
-  if (!code) return '';
-  if (code.includes('enrollment.disconnected.user_action.mfa_required'))
-    return 'Bank requires re-authentication (MFA) — click Reconnect.';
-  if (code.includes('enrollment.disconnected.user_action.oauth_required'))
-    return 'Bank requires you to re-authorize access — click Reconnect.';
-  if (code.includes('enrollment.disconnected.user_action'))
-    return 'Bank needs your attention — click Reconnect to restore access.';
-  if (code.includes('enrollment.disconnected'))
-    return 'Connection was disconnected by the bank — click Reconnect.';
-  if (code === 'enrollment.not_found')
-    return 'Enrollment not found — try reconnecting.';
-  if (code === 'too_many_requests')
-    return 'Teller rate limit hit — wait a minute and try again.';
-  if (code.includes('unable_to_process') || code.toLowerCase().includes('unable to process'))
-    return 'Teller could not process the request for this account — may be a temporary issue with your bank. Try again later or click Reconnect.';
-  if (code === 'Network error — could not reach server')
-    return 'Network error — could not reach the server. Check your connection.';
-  return code;
-}
-
-async function tellerSync(connId){
-  const conn=connections.find(x=>x.id===connId); if(!conn)return;
-  document.getElementById('sync-pulse').style.display='inline-block';
-  document.getElementById('sync-label').style.display='inline';
-  try{
-    const resp=await fetch('/.netlify/functions/teller-sync',{
-      method:'POST',headers:getAuthHeaders(),
-      body:JSON.stringify({connectionId:connId})
-    });
-    const result=await resp.json();
-    if(result.disconnected){
-      conn.syncStatus='disconnected';conn.syncError=result.error;
-    }else if(result.error){
-      conn.syncStatus='error';conn.syncError=result.error;
-    }else{
-      conn.lastSync=TODAY.toISOString().slice(0,10);conn.syncStatus='ok';conn.syncError=null;
-      (result.accounts||[]).forEach(acc=>{
-        const card=cards.find(c=>c.tellerAccountId===acc.id||(c.connectionId===connId&&acc.last_four&&c.last4===acc.last_four));
-        if(card){card.lastSync=TODAY.toISOString().slice(0,10);card.syncStatus='ok';}
-      });
-    }
-    save();
-  }catch(e){
-    conn.syncStatus='error';conn.syncError='Network error — could not reach server';
-    save();
-  }finally{
-    document.getElementById('sync-pulse').style.display='none';
-    document.getElementById('sync-label').style.display='none';
-    renderConns();renderDashboard();
-  }
-}
-
-async function openTellerConnect(reconnectConnId, forceFresh){
-  if(!window.TellerConnect){
-    showToast('Teller Connect script not loaded — check your internet connection and try again.');
-    console.error('window.TellerConnect is undefined');
-    return;
-  }
-  if(_remoteConfigReady) await _remoteConfigReady;
-  const appId=_remoteConfig.tellerAppId||'sandbox';
-  const tellerEnv=_remoteConfig.tellerEnvironment||'development';
-  console.log('[teller] opening Connect — applicationId:', appId, '| environment:', tellerEnv);
-  const opts={
-    applicationId:appId,
-    environment:tellerEnv,
-    products:['transactions','balance'],
-    selectAccount:'multiple',
-    // NOTE: onSuccess must NOT throw — any unhandled exception propagates into the
-    // Teller Connect iframe and surfaces as "Internal server error" in the widget.
-    onSuccess:(enrollment)=>{
-      const enrollmentId=enrollment.enrollment?.id||enrollment.enrollmentId||'';
-      const institution=enrollment.enrollment?.institution||enrollment.institution||null;
-      console.log('[teller] onSuccess — enrollmentId:', enrollmentId, '| institution:', institution?.name);
-
-      // Show a blocking loading overlay so the user knows something is happening
-      const loadEl=document.createElement('div');
-      loadEl.className='overlay';
-      loadEl.id='teller-enroll-loading';
-      loadEl.innerHTML=`<div class="modal" style="text-align:center;padding:48px 40px;max-width:360px">
-        <div style="font-size:36px;margin-bottom:14px">🏦</div>
-        <div style="font-size:16px;font-weight:700;margin-bottom:6px;color:var(--text)">Connecting your bank…</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.6">Saving your enrollment and importing accounts.<br>This takes a few seconds.</div>
-      </div>`;
-      document.getElementById('modal-root').appendChild(loadEl);
-
-      fetch('/.netlify/functions/teller-enroll',{
-        method:'POST',headers:getAuthHeaders(),
-        body:JSON.stringify({accessToken:enrollment.accessToken,enrollmentId,institution,reconnectConnectionId:reconnectConnId||null})
-      })
-      .then(r=>r.json().catch(()=>({error:'Server returned an invalid response (HTTP '+r.status+')'})))
-      .then(result=>{
-        document.getElementById('teller-enroll-loading')?.remove();
-
-        // ── DEBUG: log full backend response so we can see what Teller returned ──
-        console.log('[teller] enroll raw result:', JSON.stringify(result).slice(0,600));
-
-        // Catch both our JSON error format AND AWS Lambda's error format
-        const errMsg=result.error||result.errorMessage||(result.errorType?result.errorType+': '+(result.errorMessage||'unknown error'):null);
-        if(errMsg){
-          console.error('[teller] enroll error:', errMsg);
-          const errEl=document.createElement('div');
-          errEl.className='overlay';
-          errEl.innerHTML=`<div class="modal" style="max-width:440px">
-            <div class="modal-title" style="color:var(--red)">Bank connection failed</div>
-            <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7">${esc(errMsg)}</div>
-            <div style="font-size:12px;color:var(--text3);background:var(--bg3);border-radius:var(--r);padding:10px 12px;margin-bottom:16px;line-height:1.7">
-              Common fixes:<br>• Make sure the Supabase <code>enrollments</code> table exists (see Setup page SQL).<br>• Try disconnecting and reconnecting the bank.<br>• Check the Netlify function logs for details.
-            </div>
-            <div class="modal-footer"><button class="btn btn-sm btn-primary" onclick="closeModal()">OK</button></div>
-          </div>`;
-          document.getElementById('modal-root').appendChild(errEl);
-          return;
-        }
-
-        // Update local state
-        if(reconnectConnId){
-          // Reconnect: update existing connection — do NOT push a duplicate
-          const conn=connections.find(x=>x.id===reconnectConnId);
-          if(conn){
-            conn.syncStatus='ok';conn.syncError=null;
-            conn.lastSync=TODAY.toISOString().slice(0,10);
-            conn.enrollmentId=enrollmentId; // may be same, but refresh
-          }
-        }else{
-          connections.push({
-            id:result.connectionId,type:'teller',
-            label:'Teller — '+(result.institutionName||'Bank'),
-            institutionName:result.institutionName||'Unknown',
-            enrollmentId,
-            lastSync:TODAY.toISOString().slice(0,10),syncStatus:'ok',syncError:null,
-            cardIds:[],
-            consentExpiry:new Date(Date.now()+365*86400000).toISOString().slice(0,10)
-          });
-        }
-        // Convert Teller accounts → card objects and push into local state
-        const newConnId=result.connectionId;
-        const instName=result.institutionName||'Bank';
-
-        function guessIssuerId(n){
-          n=(n||'').toLowerCase();
-          if(n.includes('amex')||n.includes('american express'))return'amex';
-          if(n.includes('chase'))return'chase';
-          if(n.includes('citi'))return'citi';
-          if(n.includes('capital one'))return'capone';
-          if(n.includes('discover'))return'disc';
-          if(n.includes('bank of america'))return'boa';
-          if(n.includes('wells fargo'))return'wells';
-          if(n.includes('us bank'))return'usb';
-          if(n.includes('barclays'))return'barc';
-          return'other';
-        }
-
-        // Prefer the enriched card objects returned by the backend (have real balances).
-        // Fall back to building from raw Teller account objects if cards array is missing.
-        const cardSource = (result.cards&&result.cards.length>0) ? result.cards : [];
-        if(cardSource.length>0){
-          cardSource.forEach(card=>{
-            if(cards.find(c=>c.id===card.id||c.tellerAccountId===card.tellerAccountId))return;
-            cards.push(card);
-          });
-        } else {
-          (result.accounts||[]).forEach(acc=>{
-            if(cards.find(c=>c.tellerAccountId===acc.id))return;
-            cards.push({
-              id:acc.id||('c'+Date.now()+Math.random().toString(36).slice(2,6)),
-              issuerId:guessIssuerId(instName),
-              name:acc.name||instName,
-              last4:acc.last_four||'',
-              limit:parseFloat(acc.credit_limit||0)||0,
-              balance:parseFloat(acc.balance?.current||acc.balance||0)||0,
-              statementClose:'',dueDate:'',minPayment:0,apr:null,
-              annualFee:0,annualFeeMonth:null,autopay:false,status:'active',
-              syncMethod:'teller',rewardsType:'',rewardsNotes:'',notes:'',
-              connectionId:newConnId,
-              lastSync:TODAY.toISOString().slice(0,10),
-              syncStatus:'ok',syncError:null,
-              tellerAccountId:acc.id||null
-            });
-          });
-        }
-
-        save();
-        // After reconnect: stay on connections page and auto-sync to confirm it works
-        if(reconnectConnId){
-          renderConns();renderDashboard();
-          showToast('Reconnected ✓ — syncing now…');
-          setTimeout(()=>tellerSync(reconnectConnId),600);
-          return;
-        }
-        nav('cards',document.querySelector('[onclick*="nav(\'cards\'"]'));
-        const count=(result.cards||result.accounts||[]).length;
-
-        // If zero credit card accounts, show an explanatory modal instead of silent "0 imported"
-        if(count===0){
-          const foundTypes=(result.allAccountTypes||[]).map(a=>a.type+(a.subtype?'/'+a.subtype:'')).join(', ')||'none returned';
-          const noCardEl=document.createElement('div');
-          noCardEl.className='overlay';
-          noCardEl.innerHTML=`<div class="modal" style="max-width:480px">
-            <div class="modal-title">Connected — but no credit cards found</div>
-            <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">
-              <strong>${esc(instName)}</strong> was connected successfully, but Teller returned <strong>0 credit card accounts</strong>.
-            </div>
-            <div style="background:var(--amber-bg);border:1px solid rgba(217,119,6,.2);border-radius:var(--r);padding:12px 14px;font-size:12px;color:var(--amber);margin-bottom:14px;line-height:1.7">
-              <strong>Accounts found at ${esc(instName)}:</strong> ${esc(foundTypes)}<br><br>
-              These are bank accounts (checking/savings), not credit cards.
-            </div>
-            <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:16px">
-              <strong>To connect your credit cards:</strong><br>
-              • Each card issuer is a separate Teller connection<br>
-              • American Express → connect "American Express" in Teller<br>
-              • Chase credit cards → connect "Chase" (same login, different account type)<br>
-              • Citi, Capital One, etc. → connect each separately<br><br>
-              Go to <strong>Connections → + Add connection</strong> and search for your card issuer by name.
-            </div>
-            <div class="modal-footer"><button class="btn btn-sm btn-primary" onclick="closeModal()">Got it</button></div>
-          </div>`;
-          document.getElementById('modal-root').appendChild(noCardEl);
-        }
-
-        // Directly fetch fresh data from Supabase — avoids the syncFromSupabase()
-        // early-return bug (if(!sb)return) that silently skips all array updates.
-        renderConns();
-        renderCards();
-        renderDashboard();
-        showToast(`✓ Connected ${instName} — ${count} card${count!==1?'s':''} imported`);
-      })
-      .catch(e=>{
-        document.getElementById('teller-enroll-loading')?.remove();
-        console.error('[teller] enroll fetch error:', e.message);
-        const errEl=document.createElement('div');
-        errEl.className='overlay';
-        errEl.innerHTML=`<div class="modal" style="max-width:400px">
-          <div class="modal-title">Connection error</div>
-          <div style="font-size:13px;color:var(--text2);margin-bottom:16px;line-height:1.7">${esc(e.message)}</div>
-          <div class="modal-footer"><button class="btn btn-sm btn-primary" onclick="closeModal()">OK</button></div>
-        </div>`;
-        document.getElementById('modal-root').appendChild(errEl);
-      });
-    },
-    onExit:()=>{ console.log('[teller] Connect exited'); },
-    onFailure:(failure)=>{
-      console.warn('[teller] Connect failure:', JSON.stringify(failure));
-      const code=failure?.type||failure?.error?.code||'unknown';
-      const msg=failure?.message||failure?.error?.message||'The bank connection could not be completed.';
-
-      // Mark connection disconnected when enrollment has expired
-      if(code.includes('enrollment.disconnected')||code.includes('disconnected')){
-        const conn=connections.find(x=>x.enrollmentId===failure.enrollmentId);
-        if(conn){conn.syncStatus='disconnected';conn.syncError=code;save();renderConns();}
-      }
-
-      // Always show a visible modal — toasts are too easy to miss for a failure
-      const errEl=document.createElement('div');
-      errEl.className='overlay';
-      errEl.onclick=e=>{if(e.target===errEl)errEl.remove();};
-      errEl.innerHTML=`<div class="modal" style="max-width:440px">
-        <div class="modal-title" style="color:var(--red)">Bank connection failed</div>
-        <div style="font-size:13px;color:var(--text2);line-height:1.7;margin-bottom:12px">${esc(msg)}</div>
-        <div style="font-size:12px;background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;color:var(--text3);margin-bottom:16px;font-family:monospace">
-          code: ${esc(code)}
-        </div>
-        <div style="font-size:12px;color:var(--text2);line-height:1.7;margin-bottom:16px">
-          Common fixes:<br>
-          • If your bank isn't listed, it may not be supported yet.<br>
-          • For "enrollment.disconnected" errors, use the Reconnect button on your connection.<br>
-          • Make sure your Teller application is in <strong>development</strong> mode (not sandbox) to connect real accounts.
-        </div>
-        <div class="modal-footer"><button class="btn btn-sm btn-primary" onclick="this.closest('.overlay').remove()">OK</button></div>
-      </div>`;
-      document.getElementById('modal-root').appendChild(errEl);
-    }
-  };
-  if(reconnectConnId && !forceFresh){
-    const conn=connections.find(x=>x.id===reconnectConnId);
-    if(conn?.enrollmentId)opts.enrollmentId=conn.enrollmentId;
-  }
-  try{
-    const teller=window.TellerConnect.setup(opts);
-    teller.open();
-  }catch(e){
-    console.error('[teller] TellerConnect.setup error:', e.message);
-    showToast('Failed to open Teller Connect: '+e.message);
-  }
-}
 
 // ═══════════════════════════════════════════════════════
 // DETAIL VIEW
@@ -3031,7 +2723,7 @@ function openModal(type,id){
         <div class="fg"><label>Autopay</label><select id="f-auto"><option value="true"${!c||c.autopay?' selected':''}>On</option><option value="false"${c&&!c.autopay?' selected':''}>Off</option></select></div>
         <div class="fg"><label>Status</label><select id="f-st"><option value="active"${!c||c.status==='active'?' selected':''}>Active</option><option value="sockdrawer"${c&&c.status==='sockdrawer'?' selected':''}>Sock drawer</option><option value="closed"${c&&c.status==='closed'?' selected':''}>Closed</option></select></div>
         <div class="fg"><label>Card type</label><select id="f-type"><option value="personal"${!c||!c.isBusiness?' selected':''}>Personal</option><option value="business"${c&&c.isBusiness?' selected':''}>Business</option></select></div>
-        <div class="fg"><label>Sync method</label><select id="f-sync"><option value="manual"${!c||c.syncMethod==='manual'?' selected':''}>Manual</option><option value="teller"${c&&c.syncMethod==='teller'?' selected':''}>Teller</option><option value="email"${c&&c.syncMethod==='email'?' selected':''}>Email</option><option value="browser"${c&&c.syncMethod==='browser'?' selected':''}>Browser</option></select></div>
+        <div class="fg"><label>Sync method</label><select id="f-sync"><option value="manual"${!c||c.syncMethod==='manual'?' selected':''}>Manual</option><option value="email"${c&&c.syncMethod==='email'?' selected':''}>Email</option><option value="browser"${c&&c.syncMethod==='browser'?' selected':''}>Browser</option></select></div>
         <div class="fg full"><label>Rewards type</label><input id="f-rew" value="${c?esc(c.rewardsType||''):''}"></div>
         <div class="fg full"><label>Rewards notes</label><textarea id="f-rewn">${c?esc(c.rewardsNotes||''):''}</textarea></div>
         <div class="fg full"><label>Notes (retention offers, downgrade thoughts, etc.)</label><textarea id="f-notes">${c?esc(c.notes||''):''}</textarea></div>
@@ -3063,15 +2755,7 @@ function openModal(type,id){
   if(type==='conn'){
     over.innerHTML=`<div class="modal">
       <div class="modal-title">Add connection</div>
-      <div class="vault-note"><strong style="color:var(--text)">Teller recommended.</strong> Your bank credentials are handled entirely by Teller's hosted Connect flow. CardOS only stores an enrollment reference — your password is never seen here.</div>
       <div style="display:flex;flex-direction:column;gap:12px">
-        <div class="plaid-card" style="cursor:pointer;border-color:var(--green2)" onclick="closeModal();openTellerConnect()">
-          <div style="display:flex;align-items:center;gap:12px">
-            <div style="width:36px;height:36px;border-radius:var(--r);background:var(--green-bg);border:1px solid var(--green2);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:var(--green)">T</div>
-            <div><div style="font-size:14px;font-weight:600">Connect via Teller</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Bank-level mTLS · No credentials stored · Supports major US institutions</div></div>
-            <div style="margin-left:auto;font-size:18px;color:var(--text3)">→</div>
-          </div>
-        </div>
         <div class="plaid-card" style="cursor:pointer" onclick="closeModal();openModal('conn-manual')">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:36px;height:36px;border-radius:var(--r);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:16px">✏️</div>
@@ -3089,7 +2773,7 @@ function openModal(type,id){
 function saveCard(editId){
   const g=id=>(document.getElementById(id)?.value||'').trim();
   if(!g('f-name')||!g('f-lim')){alert('Card name and credit limit are required.');return;}
-  const nu={id:editId||'c'+Date.now(),issuerId:g('f-iss'),name:g('f-name'),last4:g('f-last4'),limit:parseFloat(g('f-lim'))||0,balance:parseFloat(g('f-bal'))||0,statementClose:g('f-close'),dueDate:g('f-due'),minPayment:parseFloat(g('f-min'))||0,apr:parseFloat(g('f-apr'))||null,annualFee:parseFloat(g('f-af'))||0,annualFeeMonth:parseInt(g('f-afm'))||null,autopay:g('f-auto')==='true',isBusiness:g('f-type')==='business',status:g('f-st'),syncMethod:g('f-sync'),rewardsType:g('f-rew'),rewardsNotes:g('f-rewn'),notes:g('f-notes'),connectionId:editId?(cards.find(x=>x.id===editId)?.connectionId||null):null,lastSync:null,syncStatus:g('f-sync')==='manual'?'manual':'pending',syncError:null,tellerAccountId:null};
+  const nu={id:editId||'c'+Date.now(),issuerId:g('f-iss'),name:g('f-name'),last4:g('f-last4'),limit:parseFloat(g('f-lim'))||0,balance:parseFloat(g('f-bal'))||0,statementClose:g('f-close'),dueDate:g('f-due'),minPayment:parseFloat(g('f-min'))||0,apr:parseFloat(g('f-apr'))||null,annualFee:parseFloat(g('f-af'))||0,annualFeeMonth:parseInt(g('f-afm'))||null,autopay:g('f-auto')==='true',isBusiness:g('f-type')==='business',status:g('f-st'),syncMethod:g('f-sync'),rewardsType:g('f-rew'),rewardsNotes:g('f-rewn'),notes:g('f-notes'),connectionId:editId?(cards.find(x=>x.id===editId)?.connectionId||null):null,lastSync:null,syncStatus:g('f-sync')==='manual'?'manual':'pending',syncError:null};
   const isNew=!editId;
   if(editId){const i=cards.findIndex(x=>x.id===editId);if(i>-1)cards[i]={...cards[i],...nu};}else cards.push(nu);
   save();closeModal();renderDashboard();renderCards();
@@ -3281,8 +2965,8 @@ const PAGE_META={
   calcs:{title:'Calculators',sub:'Pay-to-utilization · Debt payoff · Balance transfer · Score impact'},
   budgets:{title:'Budgets',sub:'Monthly spending limits by category · Progress tracking · Alerts at 80%'},
   ledger:{title:'Ledger',sub:'All transactions · Split charges · Tags (business/personal/reimbursable) · Monthly P&L'},
-  connections:{title:'Connections',sub:'Teller, email, and manual sync management'},
-  setup:{title:'Setup & Deploy',sub:'Netlify deployment · Supabase database · Teller integration'},
+  connections:{title:'Connections',sub:'Manual and email sync management'},
+  setup:{title:'Setup & Deploy',sub:'Netlify deployment · Supabase database · Configuration'},
   admin:{title:'Admin Panel',sub:'Manage invite list · Run migrations · View users'},
   knowledge:{title:'Knowledge Base',sub:'Credit card strategy · Pro tips · Advanced techniques'}
 };
@@ -3337,7 +3021,6 @@ function nav(name,btn){
 // ADMIN PANEL
 // ═══════════════════════════════════════════════════════
 const FEATURE_DEFS=[
-  {key:'canConnectBanks',    label:'Connect Banks',   desc:'Add/sync Teller bank connections'},
   {key:'canViewTransactions',label:'Transactions',    desc:'View transaction history'},
   {key:'canViewReports',     label:'Reports',         desc:'View reports & charts'},
   {key:'canViewLedger',      label:'Ledger',          desc:'View ledger & split transactions'},
@@ -4112,7 +3795,7 @@ document.getElementById('topbar-sub').textContent=TODAY.toLocaleDateString('en-U
 renderDashboard();
 const urg=buildAlerts().filter(a=>a.t==='urgent').length;
 [document.getElementById('nb-alerts'),document.getElementById('nb-alerts2')].forEach(b=>{if(b&&urg)b.style.display='block';});
-// Fetch server-side config (anon key, teller app ID) then run auth init
+// Fetch server-side config then run auth init
 _remoteConfigReady = fetchRemoteConfig();
 _remoteConfigReady.then(()=>initAuth());
 
@@ -4299,7 +3982,7 @@ function renderLedger(){
 
   const feedEl=document.getElementById('ledger-feed');
   if(!txs.length){
-    feedEl.innerHTML=`<div class="empty"><span class="empty-icon">📒</span>${transactions.length?'No transactions match filters.':'No transactions — go to Transactions and refresh from Teller.'}</div>`;
+    feedEl.innerHTML=`<div class="empty"><span class="empty-icon">📒</span>${transactions.length?'No transactions match filters.':'No transactions yet — add transactions manually.'}</div>`;
     return;
   }
 
@@ -4687,7 +4370,7 @@ function isRecurring(txList){
 function renderMerchants(){
   const el=document.getElementById('tx-merchants');if(!el)return;
   if(!transactions.length){
-    el.innerHTML='<div class="empty"><span class="empty-icon">🏪</span>No transactions yet.<br><span style="font-size:13px;color:var(--text3)">Go to Transactions tab and click "Refresh from Teller" first.</span></div>';
+    el.innerHTML='<div class="empty"><span class="empty-icon">🏪</span>No transactions yet.<br><span style="font-size:13px;color:var(--text3)">Add transactions manually to get started.</span></div>';
     return;
   }
 
@@ -4814,7 +4497,7 @@ function renderEnhancedReports(){
     <div class="stat c-amber"><div class="stat-icon" style="background:var(--amber-bg)">📊</div><div class="stat-label">Top Category</div><div class="stat-val" style="font-size:16px">${topCatEntry?getCat(topCatEntry[0]).icon+' '+getCat(topCatEntry[0]).label:'—'}</div><div class="stat-sub">${topCatEntry?fmt(topCatEntry[1])+' YTD':''}</div></div>
     <div class="stat c-green"><div class="stat-icon" style="background:var(--green-bg)">💳</div><div class="stat-label">Top Card</div><div class="stat-val" style="font-size:15px;letter-spacing:-.2px">${topCard?topCard.name.split(' ').slice(0,2).join(' '):'—'}</div><div class="stat-sub">${topCard?fmt(cardTotals[topCardId])+' YTD':''}</div></div>`;
 
-  const noData='<div style="color:var(--text3);font-size:12px;padding:8px 0">No transaction data — go to Transactions and click "Refresh from Teller".</div>';
+  const noData='<div style="color:var(--text3);font-size:12px;padding:8px 0">No transaction data yet.</div>';
   document.getElementById('rpt-monthly-sub').textContent=MLABELS.join(', ');
   document.getElementById('rpt-cat-sub').textContent=MLABELS.join(', ');
 
@@ -4927,22 +4610,6 @@ const TX_CATS={
   education:     {label:'Education',     icon:'📚', color:'#0EA5E9'},
   other:         {label:'Other',         icon:'📦', color:'#94A3B8'},
 };
-const TELLER_CAT_MAP={
-  'accommodation':'travel','airlines':'travel','air_transportation':'travel',
-  'airline':'travel','car_rental':'travel','lodging':'travel','hotel':'travel',
-  'ride_share':'travel','taxi':'travel','parking':'travel','transit':'travel',
-  'transportation':'travel','travel':'travel',
-  'restaurants':'dining','food_and_drink':'dining','dining':'dining','fast_food':'dining',
-  'bar':'dining','coffee_shop':'dining','food_delivery':'dining',
-  'groceries':'groceries','supermarket':'groceries','grocery':'groceries',
-  'gas_station':'gas','fuel':'gas','gas':'gas','automotive':'gas',
-  'subscription':'subscriptions','streaming':'subscriptions','software':'subscriptions',
-  'utilities':'subscriptions',
-  'shopping':'shopping','retail':'shopping','ecommerce':'shopping','clothing':'shopping',
-  'electronics':'shopping','department_store':'shopping',
-  'healthcare':'healthcare','pharmacy':'healthcare','medical':'healthcare',
-  'entertainment':'entertainment','recreation':'entertainment',
-};
 const DESCRIPTION_TRAVEL_RE=/united|delta|american air|southwest|jetblue|spirit air|frontier|alaska air|lufthansa|british air|air france|emirates|hotel|marriott|hilton|hyatt|airbnb|vrbo|expedia|booking\.com|priceline|hertz|avis|enterprise rent|uber.*trip|lyft|amtrak|carnival|royal caribbean|cruise/i;
 const DESCRIPTION_DINING_RE=/restaurant|grubhub|doordash|ubereats|seamless|instacart|starbucks|mcdonald|chipotle|panera|subway|dunkin|pizza|sushi|burger|taco|diner|bistro|cafe|bakery/i;
 const DESCRIPTION_GROCERY_RE=/walmart|target|costco|trader joe|whole foods|kroger|safeway|publix|stop.?shop|wegman|aldi|food lion|sprouts/i;
@@ -4950,8 +4617,6 @@ const DESCRIPTION_GAS_RE=/shell|exxon|mobil|bp |chevron|sunoco|marathon|wawa|spe
 const DESCRIPTION_SHOPPING_RE=/amazon|ebay|etsy|wayfair|best buy|home depot|lowes|tj.?maxx|nordstrom|macy|gap |old navy|zara|h&m |ikea/i;
 function txCat(t){
   if(t.user_category)return t.user_category;
-  const raw=(t.category||'').toLowerCase().replace(/[^a-z_]/g,'_');
-  if(TELLER_CAT_MAP[raw])return TELLER_CAT_MAP[raw];
   const desc=t.description||'';
   if(DESCRIPTION_TRAVEL_RE.test(desc))return'travel';
   if(DESCRIPTION_DINING_RE.test(desc))return'dining';
@@ -4962,25 +4627,6 @@ function txCat(t){
 }
 function getCat(k){return TX_CATS[k]||TX_CATS.other;}
 
-async function fetchTransactions(){
-  const btn=document.getElementById('tx-refresh-btn');
-  if(btn){btn.disabled=true;btn.textContent='↻ Fetching…';}
-  showToast('Fetching transactions from Teller…');
-  try{
-    const resp=await fetch('/.netlify/functions/teller-fetch-transactions',{
-      method:'POST',headers:getAuthHeaders(),body:JSON.stringify({})
-    });
-    const result=await resp.json();
-    if(result.error){showToast('Error: '+result.error);}
-    else{
-      transactions=result.transactions||[];
-      localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
-      renderTransactions();
-      showToast('✓ '+result.count+' transactions loaded');
-    }
-  }catch(e){showToast('Failed: '+e.message);}
-  finally{if(btn){btn.disabled=false;btn.textContent='↻ Refresh from Teller';}}
-}
 
 async function loadTransactionsFromSupabase(){
   const sb=getSupabase();if(!sb)return;
@@ -5054,7 +4700,7 @@ function renderTransactions(){
 
   const el=document.getElementById('tx-list');
   if(!transactions.length){
-    el.innerHTML=`<div class="empty"><span class="empty-icon">💳</span>No transactions yet.<br><span style="font-size:13px;color:var(--text3)">Click "Refresh from Teller" to pull your latest transactions.</span><div style="margin-top:12px"><button class="btn btn-sm btn-primary" onclick="fetchTransactions()">↻ Refresh from Teller</button></div></div>`;
+    el.innerHTML=`<div class="empty"><span class="empty-icon">💳</span>No transactions yet.<br><span style="font-size:13px;color:var(--text3)">Add transactions manually to get started.</span></div>`;
     return;
   }
   if(!txs.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔍</span>No transactions match your filters.</div>';return;}
@@ -5569,7 +5215,7 @@ function doSearch(q){
    {k:'calendar dates due statement',icon:'📅',t:'Calendar',s:'Due dates and statement closes',p:'calendar'},
    {k:'alerts notifications warnings',icon:'🔔',t:'Alerts',s:'Overdue payments and warnings',p:'alerts'},
    {k:'benefits annual fee roi',icon:'💎',t:'Card Benefits',s:'Annual fee ROI tracker',p:'benefits'},
-   {k:'connections teller bank sync',icon:'🔌',t:'Connections',s:'Bank connection management',p:'connections'},
+   {k:'connections sync manual email',icon:'🔌',t:'Connections',s:'Card connection management',p:'connections'},
    {k:'calculators payoff transfer',icon:'🧮',t:'Calculators',s:'Debt payoff and balance transfer',p:'calcs'},
   ].filter(pg=>pg.k.includes(ql)||pg.t.toLowerCase().includes(ql)).slice(0,3).forEach(pg=>{
     results.push({icon:pg.icon,title:pg.t,sub:pg.s,fn:()=>{closeSearch();pg.p==='benefits'?navBenefits(null):nav(pg.p,null);}});
