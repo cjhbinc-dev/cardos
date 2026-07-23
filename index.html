@@ -1716,13 +1716,16 @@ async function initAuth() {
       updateAdminUI();
       if (session) {
         gate.classList.add('hidden');
-        // Only sync on actual sign-in events — INITIAL_SESSION on page refresh
-        // would wipe localStorage with empty Supabase results (orphaned rows)
-        if (event === 'SIGNED_IN') {
-          // Repair orphaned rows first so the sync finds this user's data
+        // Sync on initial session restore AND fresh sign-in. The old INITIAL_SESSION
+        // skip protected pre-RLS orphaned rows; those rows no longer exist, and the
+        // skip made server-side deletes invisible until the next explicit sign-in.
+        if (event === 'SIGNED_IN' || event === 'INITIAL_SESSION') {
           syncFromSupabase();
         }
-      } else if (event === 'SIGNED_OUT') {
+      } else {
+        // No session: SIGNED_OUT, or INITIAL_SESSION restored nothing.
+        // Either way the login gate must be visible — a null-session
+        // INITIAL_SESSION used to fall through and leave the app shell exposed.
         cards = []; connections = []; offers = []; transactions = [];
         ['cardos4_cards','cardos4_conns','cardos4_offers','cardos4_history','cardos4_tx'].forEach(k => localStorage.removeItem(k));
         gate.classList.remove('hidden');
@@ -1731,11 +1734,20 @@ async function initAuth() {
       }
     });
   }
-  gate.classList.add('hidden');
-  renderDashboard();
-  // Restore last-visited page on refresh
-  const _lp=localStorage.getItem('cardos_last_page');
-  if(_lp&&_lp!=='dashboard'&&document.getElementById('pg-'+_lp))nav(_lp);
+  // Only hide the gate when a session actually exists — this used to be
+  // unconditional, which let anonymous visitors see the (empty) app shell and,
+  // worse, left no way to reach the login form at all.
+  if (_currentUser) {
+    gate.classList.add('hidden');
+    renderDashboard();
+    // Restore last-visited page on refresh
+    const _lp=localStorage.getItem('cardos_last_page');
+    if(_lp&&_lp!=='dashboard'&&document.getElementById('pg-'+_lp))nav(_lp);
+  } else {
+    gate.classList.remove('hidden');
+    showAuthPanel('login');
+    renderDashboard();
+  }
   return;
 
   // Grab adminEmail from the already-loaded remote config
@@ -2013,6 +2025,8 @@ async function syncFromSupabase(){
     else localStorage.removeItem('cardos4_conns');
     if(!or.error&&or.data!=null){offers=or.data.map(r=>r.data);localStorage.setItem('cardos4_offers',JSON.stringify(offers));}
     else localStorage.removeItem('cardos4_offers');
+    // Reconcile transactions too — deletes elsewhere must not leave ghosts here
+    await loadTransactionsFromSupabase();
     renderDashboard();
     if(document.getElementById('pg-connections')?.classList.contains('active'))renderConns();
     // Restore last visited page
@@ -2080,7 +2094,7 @@ function utilClass(u,biz){if(biz)return'util-low';return u>=30?'util-high':u>=10
 const UC={high:'var(--red)',med:'var(--amber)',low:'var(--green)'};
 function utilColor(u,biz){if(biz)return'var(--blue)';return u>=30?UC.high:u>=10?UC.med:UC.low}
 function utilBadge(u,biz){const b=biz?'bg-blue':u>=30?'bg-red':u>=10?'bg-amber':'bg-green';return`<span class="badge ${b}">${pct(u)}</span>`}
-function methodPill(m){const map={manual:'m-manual Manual',email:'m-email Email',aggregator:'m-aggregator Aggregator',browser:'m-browser Browser'};const[cls,lbl]=(map[m]||'m-manual Manual').split(' ');return`<span class="method-pill ${cls}">${lbl}</span>`}
+function methodPill(m){const map={manual:'m-manual Manual',email:'m-email Email',aggregator:'m-aggregator Aggregator',browser:'m-browser Browser'};const[cls,lbl]=(map[m]||(m?'m-manual Other':'m-manual Manual')).split(' ');return`<span class="method-pill ${cls}">${lbl}</span>`}
 function issBadge(id){const i=getIss(id);return`<div class="iss-badge" style="background:${i.bg};color:${i.color}">${i.short}</div>`}
 
 // ═══════════════════════════════════════════════════════
@@ -2217,7 +2231,7 @@ function renderDashboard(){
   if(dq)dq.textContent=DISCIPLINE_QUOTES[_disciplineIdx];
 
   if(!cards.length){
-    document.getElementById('dash-cards').innerHTML=`<div class="dc-wrap"><div style="padding:48px 32px;text-align:center"><div style="font-size:32px;margin-bottom:12px">💳</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">No cards yet</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">Connect your bank accounts or add cards manually to get started.</div><div style="display:flex;gap:8px;justify-content:center"><button class="btn btn-sm btn-primary" onclick="openModal('card')">Add a card</button></div></div></div>`;
+    document.getElementById('dash-cards').innerHTML=`<div class="dc-wrap"><div style="padding:48px 32px;text-align:center"><div style="font-size:32px;margin-bottom:12px">💳</div><div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">No cards yet</div><div style="font-size:13px;color:var(--text3);margin-bottom:20px">Bank connections are being rebuilt and aren't available yet. For now, add cards manually — balances stay up to date by manual edit or Gmail sync.</div><div style="display:flex;gap:8px;justify-content:center"><button class="btn btn-sm btn-primary" onclick="openModal('card')">Add a card</button></div></div></div>`;
   } else {
     const hdr=`<div class="dc-hdr">
       <div style="width:44px;flex-shrink:0"></div>
@@ -2317,7 +2331,7 @@ function cardHTML(c,idx){
       <div class="meta-box"><div class="meta-lbl">Stmt close</div><div class="meta-val">${fmtD(c.statementClose)}<br><span style="font-size:10px;color:var(--text2)">${v.closeIn!==null?v.closeIn+'d':''}</span></div></div>
     </div>
     <div class="card-foot">
-      <div class="sync-row"><div class="sdot" style="background:${sdotColor}"></div>${c.syncMethod==='manual'?'Manual entry':'Email sync'}${c.lastSync?' · '+fmtD(c.lastSync):''}${c.syncError?`<span style="color:var(--red)"> · ${esc(c.syncError)}</span>`:''}</div>
+      <div class="sync-row"><div class="sdot" style="background:${sdotColor}"></div>${({manual:'Manual entry',email:'Email sync',browser:'Browser sync'})[c.syncMethod]||'Not syncing'}${c.lastSync?' · '+fmtD(c.lastSync):''}${c.syncError?`<span style="color:var(--red)"> · ${esc(c.syncError)}</span>`:''}</div>
       <div style="display:flex;gap:6px">
         <button class="btn btn-xs" onclick="openModal('card-edit','${c.id}')">Edit</button>
         <button class="btn btn-xs" onclick="showDetail('${c.id}')">Detail</button>
@@ -2344,7 +2358,7 @@ function renderCards(){
     return 0;});
   const el=document.getElementById('cards-list');
   if(!cards.length){
-    el.innerHTML=`<div class="empty"><span class="empty-icon">💳</span>No cards yet.<br><span style="font-size:13px;color:var(--text3)">Add cards manually to get started.</span><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-sm btn-primary" onclick="openModal('card')">Add a card</button></div></div>`;
+    el.innerHTML=`<div class="empty"><span class="empty-icon">💳</span>No cards yet.<br><span style="font-size:13px;color:var(--text3)">Bank sync isn't available yet — add cards manually to get started.</span><div style="display:flex;gap:8px;justify-content:center;margin-top:12px"><button class="btn btn-sm btn-primary" onclick="openModal('card')">Add a card</button></div></div>`;
   } else if(!cs.length){
     el.innerHTML='<div class="empty"><span class="empty-icon">🔍</span>No cards match your filters.</div>';
   } else {
@@ -2602,7 +2616,7 @@ function renderConns(){
     groups[key].push(conn);
   });
 
-  const sBadge=s=>({ok:'<span class="badge bg-green">Connected</span>',error:'<span class="badge bg-red">Error</span>',disconnected:'<span class="badge bg-red">Disconnected</span>',pending:'<span class="badge bg-amber">Pending</span>'}[s]||'<span class="badge bg-gray">Manual</span>');
+  const sBadge=s=>({ok:'<span class="badge bg-green">Connected</span>',error:'<span class="badge bg-red">Error</span>',disconnected:'<span class="badge bg-red">Disconnected</span>',pending:'<span class="badge bg-amber">Pending</span>'}[s]||(s?'<span class="badge bg-gray">Unknown</span>':'<span class="badge bg-gray">Manual</span>'));
   const tIcon={email:'📧',aggregator:'🏦',manual:'✏️',browser:'🤖'};
 
   el.innerHTML=Object.entries(groups).map(([grpName,conns],gi)=>{
@@ -2836,14 +2850,24 @@ async function delCard(id){
   localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
   save();
   closeModal();renderDashboard();renderCards();renderTransactions();renderLedger();
-  // Service-key function handles RLS, ownership check, and full cascade cleanup
+  // Service-key function handles RLS, ownership check, and full cascade cleanup.
+  // If the server delete fails, resync so local state snaps back to server truth.
   try{
     const r=await fetch('/.netlify/functions/delete-card',{
       method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
       body:JSON.stringify({cardId:id})
     });
-    if(!r.ok){const j=await r.json().catch(()=>({}));console.warn('delete-card error:',j.error);}
-  }catch(e){console.warn('delete-card unreachable:',e);}
+    if(!r.ok){
+      const j=await r.json().catch(()=>({}));
+      console.warn('delete-card error:',j.error);
+      showToast('⚠ Delete failed on the server — restoring. Try again.');
+      syncFromSupabase();
+    }
+  }catch(e){
+    console.warn('delete-card unreachable:',e);
+    showToast('⚠ Delete failed — server unreachable. Restoring.');
+    syncFromSupabase();
+  }
 }
 function clearConnError(id){
   const conn=connections.find(c=>c.id===id);
@@ -2872,17 +2896,29 @@ async function delConn(id){
   localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
   save();
   renderConns();renderDashboard();renderTransactions();renderLedger();
-  // Delete from Supabase — use service-key function to handle orphaned rows
+  // Delete from Supabase — cascade cards/tx via service-key function, then the
+  // connection row itself. Check both results; on failure resync to server truth.
+  let serverFail=false;
   if(linked.length){
     try{
-      await fetch('/.netlify/functions/delete-card',{
+      const r=await fetch('/.netlify/functions/delete-card',{
         method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
         body:JSON.stringify({connectionId:id})
       });
-    }catch(e){console.warn('delete-card (conn) unreachable:',e);}
+      if(!r.ok){serverFail=true;const j=await r.json().catch(()=>({}));console.warn('delete-card (conn) error:',j.error);}
+    }catch(e){serverFail=true;console.warn('delete-card (conn) unreachable:',e);}
   }
   const sb=getSupabase();
-  if(sb) sb.from('connections').delete().eq('id',id).then(()=>{});
+  if(sb){
+    // .select('id') so an RLS no-op (0 rows) is visible instead of silent
+    const{data:delRows,error:delErr}=await sb.from('connections').delete().eq('id',id).select('id');
+    if(delErr){serverFail=true;console.warn('connections delete error:',delErr.message);}
+    else if(!delRows||!delRows.length)console.warn('connections delete affected 0 rows (row absent on server or blocked by RLS):',id);
+  }
+  if(serverFail){
+    showToast('⚠ Delete failed on the server — restoring. Try again.');
+    syncFromSupabase();
+  }
 }
 
 async function dedupConnections(){
@@ -4632,7 +4668,9 @@ async function loadTransactionsFromSupabase(){
   const sb=getSupabase();if(!sb)return;
   try{
     const{data,error}=await sb.from('transactions').select('data').order('tx_date',{ascending:false}).limit(500);
-    if(!error&&data&&data.length){
+    // Accept empty results — a server with 0 rows must clear local ghosts,
+    // otherwise deleted transactions render forever from localStorage.
+    if(!error&&data!=null){
       transactions=data.map(r=>r.data).filter(Boolean);
       localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
     }

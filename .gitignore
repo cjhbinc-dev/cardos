@@ -1,7 +1,7 @@
 # Local Netlify folder
 .netlify
 
-# Teller mTLS certificates — never commit these
+# mTLS certificates / key material — never commit these (dir removed with Teller, rule stays)
 /certs
 *.pem
 *.key
