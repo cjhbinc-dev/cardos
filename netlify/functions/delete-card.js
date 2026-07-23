@@ -56,6 +56,12 @@ exports.handler = async (event) => {
     if (delErr) {
       return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: delErr.message }) };
     }
+    // Cascade: remove all associated data for this card
+    await Promise.all([
+      supabase.from('transactions').delete().eq('card_id', cardId),
+      supabase.from('balance_history').delete().eq('card_id', cardId),
+      supabase.from('offers').delete().eq('data->>cardId', cardId),
+    ]);
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ deleted: 1 }) };
   }
 
@@ -79,5 +85,11 @@ exports.handler = async (event) => {
   if (bulkDelErr) {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: bulkDelErr.message }) };
   }
+  // Cascade: remove all associated data for deleted cards
+  await Promise.all([
+    supabase.from('transactions').delete().in('card_id', ids),
+    supabase.from('balance_history').delete().in('card_id', ids),
+    ...ids.map(cid => supabase.from('offers').delete().eq('data->>cardId', cid)),
+  ]);
   return { statusCode: 200, headers: CORS, body: JSON.stringify({ deleted: ids.length }) };
 };

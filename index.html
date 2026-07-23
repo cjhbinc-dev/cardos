@@ -3144,27 +3144,22 @@ function saveOffer(){
   save();closeModal();renderOffers();
 }
 async function delCard(id){
-  if(!confirm('Delete this card?'))return;
+  if(!confirm('Delete this card and all its transactions?'))return;
+  // Wipe locally first for immediate visual feedback across all views
   cards=cards.filter(c=>c.id!==id);
+  transactions=transactions.filter(t=>t.card_id!==id);
+  offers=offers.filter(o=>o.cardId!==id);
+  localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
   save();
-  closeModal();renderDashboard();renderCards();
-  // Try anon-key delete first; fall back to service-key function when RLS blocks it.
-  // .select('id') makes Supabase return deleted rows — empty array means 0 rows affected
-  // (RLS silent no-op), which is indistinguishable from an error for our purposes.
-  const sb=getSupabase();
-  if(sb){
-    const {data:_deleted,error}=await sb.from('cards').delete().eq('id',id).select('id');
-    if(error||!_deleted?.length){
-      // RLS blocked it (0 rows affected) or real error — use service-key function
-      try{
-        const r=await fetch('/.netlify/functions/delete-card',{
-          method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
-          body:JSON.stringify({cardId:id})
-        });
-        if(!r.ok){const j=await r.json().catch(()=>({}));console.warn('delete-card function error:',j.error);}
-      }catch(e){console.warn('delete-card function unreachable:',e);}
-    }
-  }
+  closeModal();renderDashboard();renderCards();renderTransactions();renderLedger();
+  // Service-key function handles RLS, ownership check, and full cascade cleanup
+  try{
+    const r=await fetch('/.netlify/functions/delete-card',{
+      method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+      body:JSON.stringify({cardId:id})
+    });
+    if(!r.ok){const j=await r.json().catch(()=>({}));console.warn('delete-card error:',j.error);}
+  }catch(e){console.warn('delete-card unreachable:',e);}
 }
 function clearConnError(id){
   const conn=connections.find(c=>c.id===id);
@@ -3184,11 +3179,15 @@ async function delConn(id){
     ?`Remove this connection and delete ${linked.length} linked card${linked.length>1?'s':''}?`
     :'Remove this connection?';
   if(!confirm(msg))return;
-  // Remove linked cards locally
+  const linkedIds=linked.map(c=>c.id);
+  // Remove linked cards and their data locally
   cards=cards.filter(c=>c.connectionId!==id);
   connections=connections.filter(c=>c.id!==id);
+  transactions=transactions.filter(t=>!linkedIds.includes(t.card_id));
+  offers=offers.filter(o=>!linkedIds.includes(o.cardId));
+  localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
   save();
-  renderConns();renderDashboard();
+  renderConns();renderDashboard();renderTransactions();renderLedger();
   // Delete from Supabase — use service-key function to handle orphaned rows
   if(linked.length){
     try{
