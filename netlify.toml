@@ -24,6 +24,9 @@
 [functions."backup-daily"]
   schedule = "0 6 * * *"
 
+[functions."plaid-daily-sync"]
+  schedule = "30 6 * * *"
+
 [[headers]]
   for = "/*"
   [headers.values]

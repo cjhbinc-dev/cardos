@@ -2887,6 +2887,25 @@ async function delConn(id){
     ?`Remove this connection and delete ${linked.length} linked card${linked.length>1?'s':''}?`
     :'Remove this connection?';
   if(!confirm(msg))return;
+  const _conn=connections.find(c=>c.id===id);
+  if(_conn&&_conn.type==='plaid'){
+    // Plaid path: the server MUST call /item/remove before any rows are
+    // deleted (billing kill switch). No optimistic local delete — if the
+    // server fails, nothing changes and the user is told.
+    showToast('Removing connection…');
+    try{
+      const r=await fetch('/.netlify/functions/plaid-remove-item',{
+        method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},
+        body:JSON.stringify({connectionId:id})
+      });
+      const j=await r.json().catch(()=>({}));
+      if(!r.ok){showToast('⚠ Could not remove connection: '+(j.error||('HTTP '+r.status)));return;}
+      showToast('✓ Connection removed — Plaid billing stopped');
+    }catch(e){showToast('⚠ Could not remove — server unreachable. Nothing was deleted.');return;}
+    await syncFromSupabase();
+    renderConns();renderDashboard();renderTransactions();renderLedger();
+    return;
+  }
   const linkedIds=linked.map(c=>c.id);
   // Remove linked cards and their data locally
   cards=cards.filter(c=>c.connectionId!==id);

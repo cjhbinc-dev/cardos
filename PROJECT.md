@@ -26,8 +26,9 @@ Last updated: 2026-07-23 (Part A — skeleton; sections marked *[fill: Phase N]*
 ## Data model (queried live 2026-07-23 via Supabase management API)
 
 - `enrollments`: `id text PK`, `enrollment_id text`, `access_token text`,
-  `institution_name text`, `created_at timestamptz`, `user_id uuid`
-  *[fill: Phase 1 — add `item_id text`, `transaction_cursor text`]*
+  `institution_name text`, `created_at timestamptz`, `user_id uuid`,
+  `item_id text`, `transaction_cursor text` (Plaid columns added 2026-07-23;
+  for Plaid rows id = enrollment_id = item_id)
 - `connections`: `id text PK`, `data jsonb`, `updated_at timestamptz`, `user_id uuid`.
   `data.type` routes integration: `'teller'` or `'plaid'`.
 - `cards`: `id text PK`, `data jsonb`, `updated_at timestamptz`, `user_id uuid`
@@ -63,13 +64,32 @@ Last updated: 2026-07-23 (Part A — skeleton; sections marked *[fill: Phase N]*
 - Rates: Balance **$0.10/call**, Transactions **$0.30/connected account/month**.
   Transactions bills per Item per month for as long as a valid access_token exists;
   `/item/remove` is the only off switch.
-- Dashboard state (2026-07-23): Compliance Center "Action required" — App profile
-  form filled (CardOS / https://cardos-manager.netlify.app / support email / 250-char
-  reason) but **not yet submitted**. OAuth institution registration status not yet
-  captured. *[fill: dashboard prerequisites + Phase 2 — redirect URI decision with doc
-  citation]*
-- *[fill: Phase 1 — functions built + doc URLs; Phase 4/5 — live Items list;
-  Phase 6 — webhooks]*
+- Dashboard state (2026-07-23): Data Transparency use case **published** ("Track
+  and manage your finances"). Allowed redirect URIs registered:
+  `https://cardos-manager.netlify.app/` and
+  `https://stirring-tapioca-25776a.netlify.app/` — update-mode link tokens must
+  pass the same redirect_uri (they do, in plaid-create-link-token). App profile:
+  saved with April-era reason text; multi-user reason text pending CJ's
+  identity-verification + save. Products enabled: Balance + Transactions, each
+  with 200 free trial credits ("0/200 free trial credits used").
+- **Phase 1 backend built 2026-07-23** (doc URLs in each file header):
+  `lib/plaid-client.js` (SDK wrapper, strict-auth helpers, request_id logging),
+  `plaid-remove-item.js` (billing kill switch — /item/remove BEFORE local
+  deletes; enrollment kept if it fails; admin can remove by item_id),
+  `plaid-create-link-token.js` (days_requested=730 max, one-way door;
+  update mode via ownership-verified server-side token lookup),
+  `plaid-exchange-token.js` (persist token first; dedupe by institution+mask
+  removes the duplicate Item; /accounts/get free; branding via
+  /institutions/get_by_id), `plaid-sync.js` (/accounts/get only —
+  ITEM_LOGIN_REQUIRED → {disconnected:true}), `plaid-fetch-transactions.js`
+  (cursor advanced ONLY after page writes; empty next_cursor never persisted;
+  time-boxed with hasMore continuation), `plaid-daily-sync.js` (cron 06:30 UTC,
+  plaid-type connections only), `plaid-diag.js` (TEMP smoke/debug, secret-gated
+  — remove in Phase 6). Frontend delConn routes type:'plaid' through
+  plaid-remove-item with NO optimistic delete.
+- Smoke test 2026-07-23: production /institutions/get ok,
+  request_id 783ecd7c63fce20, total 10,029 US institutions.
+- *[fill: Phase 4/5 — live Items list; Phase 6 — webhooks]*
 
 ## Env vars (names and purposes only — never values)
 
@@ -81,8 +101,12 @@ Plaid additions:
 - `ADMIN_EMAIL` — admin gate + always-allowed signup
 - `NOTIFICATION_EMAIL` — alert/feedback destination
 - `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` — web push
-- `PLAID_ENV` — `production` (was a stale leftover; value is now the intended one)
-- *[fill: Phase 0 — `PLAID_CLIENT_ID`, `PLAID_SECRET`; report new byte total]*
+- `PLAID_ENV` — `production`; `PLAID_CLIENT_ID`; `PLAID_SECRET` (marked
+  secret/write-only in Netlify — CLI cannot read it, functions can)
+- Prod total after Teller removal + Plaid additions: 762 bytes / 12 vars.
+- Test site (`stirring-tapioca-25776a`) carries: SUPABASE_URL, SUPABASE_ANON_KEY,
+  SUPABASE_SERVICE_KEY (temporary — remove after Plaid phases), ADMIN_EMAIL,
+  MIGRATION_SECRET, PLAID_CLIENT_ID, PLAID_SECRET, PLAID_ENV.
 
 ## Known issues
 
