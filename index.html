@@ -5428,7 +5428,7 @@ function renderBenefits(){
   if(matched.length) html+=matched.map(c=>renderBenCard(c)).join('');
   // Cards with no benefit data for their issuer (honest, not a blank panel)
   noData.forEach(c=>{
-    html+=`<div class="benefit-item" style="opacity:.85"><div style="display:flex;align-items:center;gap:10px"><div class="benefit-cat-icon" style="background:var(--bg3)">🗂️</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)} ••${esc(c.last4||'')}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">We don't have benefit data for this card yet. The tracker covers Amex Platinum/Gold, Chase Sapphire Reserve/Preferred, Citi Strata Premier, and Capital One Venture X.</div></div></div></div>`;
+    html+=`<div class="benefit-item" style="opacity:.9"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div class="benefit-cat-icon" style="background:var(--bg3)">🗂️</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)} ••${esc(c.last4||'')}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">We don't have a benefit profile for this ${esc(getIss(c.issuerId).name)} card yet. If it's a premium card we may cover it under a different name.</div></div><button class="btn btn-sm" onclick="showBenefitPicker([cards.find(x=>x.id==='${c.id}')])">Pick a profile</button></div></div>`;
   });
   if(listEl)listEl.innerHTML=html;
 }
