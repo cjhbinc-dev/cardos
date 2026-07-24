@@ -57,7 +57,15 @@ exports.handler = async (event) => {
       results.update_mode_link_token = { ok: true, token_prefix: lt.data.link_token.slice(0, 15) + '…', request_id: lt.data.request_id };
     } catch (err) { fail('update_mode_link_token', err); }
 
-    // 3. Force ITEM_LOGIN_REQUIRED, confirm /accounts/get returns it
+    // 3. Fire SYNC_UPDATES_AVAILABLE at our receiver BEFORE breaking the item
+    //    (signature verification proof lands in plaid-webhook logs; unknown
+    //    item → verified + ignored)
+    try {
+      const fw = await plaid.sandboxItemFireWebhook({ access_token: accessToken, webhook_code: 'SYNC_UPDATES_AVAILABLE' });
+      results.fire_webhook = { ok: !!fw.data.webhook_fired, request_id: fw.data.request_id };
+    } catch (err) { fail('fire_webhook', err); }
+
+    // 4. Force ITEM_LOGIN_REQUIRED, confirm /accounts/get returns it
     try {
       await plaid.sandboxItemResetLogin({ access_token: accessToken });
       try {
@@ -68,13 +76,6 @@ exports.handler = async (event) => {
         results.reset_login_detection = { ok: code === 'ITEM_LOGIN_REQUIRED', error_code: code, request_id: err?.response?.data?.request_id };
       }
     } catch (err) { fail('reset_login_detection', err); }
-
-    // 4. Fire SYNC_UPDATES_AVAILABLE at our receiver (signature verification
-    //    proof lands in plaid-webhook logs; unknown item → verified + ignored)
-    try {
-      const fw = await plaid.sandboxItemFireWebhook({ access_token: accessToken, webhook_code: 'SYNC_UPDATES_AVAILABLE' });
-      results.fire_webhook = { ok: !!fw.data.webhook_fired, request_id: fw.data.request_id };
-    } catch (err) { fail('fire_webhook', err); }
   } catch (err) {
     fail('create_and_exchange', err);
   } finally {
