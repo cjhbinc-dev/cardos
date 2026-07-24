@@ -53,7 +53,7 @@ exports.handler = async (event) => {
 
       for (const acc of creditAccounts) {
         const existing = cards.find(c => c.plaidAccountId === acc.account_id || c.id === acc.account_id) || null;
-        const card = mapPlaidAccountToCard(acc, conn.id, existing);
+        const card = mapPlaidAccountToCard(acc, conn.id, existing, { id: conn.data?.institutionId, name: conn.data?.institutionName });
         const { data: saved, error: cardErr } = await supabase
           .from('cards').upsert({ id: card.id, user_id: conn.user_id, data: card }).select('id');
         if (cardErr || !saved?.length) console.error('[plaid-daily] card upsert failed for', card.id, ':', cardErr?.message || '0 rows');

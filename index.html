@@ -3026,6 +3026,7 @@ function _openPlaidWithToken(linkToken,reconnectConnId,receivedRedirectUri){
         else showToast('✓ '+(j.institutionName||'Bank')+' connected — '+j.cardsSaved+' card'+(j.cardsSaved>1?'s':'')+' added. Importing transactions…');
         await syncFromSupabase();
         renderConns();renderDashboard();renderCards();
+        resolveCardBenefits();
         if(j.cardsSaved&&j.connectionId)fetchPlaidTransactions(j.connectionId);
       }catch(e){showToast('⚠ Could not finish connecting — server unreachable.');}
     },
@@ -3063,6 +3064,7 @@ async function syncPlaidConn(connId){
     if(!r.ok){showToast('⚠ '+(j?.plaid?.error_code?friendlyPlaidError(j.plaid.error_code):(j.error||'Sync failed.')));return;}
     showToast('✓ Balances updated ('+((j.updated&&j.updated.length)||0)+' card'+(((j.updated&&j.updated.length)||0)!==1?'s':'')+'). Checking transactions…');
     await syncFromSupabase();renderConns();renderDashboard();renderCards();
+    resolveCardBenefits();
     await fetchPlaidTransactions(connId);
   }catch(e){showToast('⚠ Sync failed — server unreachable.');}
 }
@@ -5136,9 +5138,74 @@ async function loadBenefitsFromSupabase(){
   } catch(e){ console.warn('benefits load:', e); }
 }
 
+// Which issuer each template belongs to (templates match on issuerId + a name regex)
+const TEMPLATE_ISSUER = {amex_platinum:'amex',amex_gold:'amex',chase_reserve:'chase',chase_preferred:'chase',citi_strata:'citi',capone_venture_x:'capone'};
+function templatesForIssuer(issuerId){ return Object.keys(BENEFIT_TEMPLATES).filter(k=>TEMPLATE_ISSUER[k]===issuerId); }
+
+// Match order: (1) the user's explicit choice always wins and survives re-sync;
+// (2) a confident name-regex match; otherwise no template — we never silently
+// guess (a Citi Double Cash must not inherit Strata Premier's benefits), we ask.
 function matchTemplate(card){
-  for(const [key, tmpl] of Object.entries(BENEFIT_TEMPLATES)){ if(tmpl.match(card)) return [key, tmpl]; }
-  return [null, null];
+  if(card&&card.benefitTemplateKey){
+    if(card.benefitTemplateKey==='none') return [null,null];
+    const t=BENEFIT_TEMPLATES[card.benefitTemplateKey];
+    if(t) return [card.benefitTemplateKey,t];
+  }
+  const keys=templatesForIssuer(card&&card.issuerId);
+  for(const k of keys){ if(BENEFIT_TEMPLATES[k].match(card)) return [k,BENEFIT_TEMPLATES[k]]; }
+  return [null,null];
+}
+
+// A card needs the picker when its issuer HAS templates, none matched by name,
+// and the user hasn't chosen yet. (Issuers with no templates → honest empty.)
+function benefitNeedsPicker(card){
+  if(!card||card.benefitTemplateKey) return false;
+  const keys=templatesForIssuer(card.issuerId);
+  if(!keys.length) return false;
+  return !keys.some(k=>BENEFIT_TEMPLATES[k].match(card));
+}
+
+// Persist a benefit-template choice and pull the annual fee from the template.
+// annualFeeMonth is account-specific (when the card was opened) — no template
+// can know it — so it stays a manual field the empty states prompt for.
+function setCardBenefitTemplate(cardId, key){
+  const card=cards.find(c=>c.id===cardId); if(!card) return;
+  card.benefitTemplateKey=key;
+  if(key&&key!=='none'){
+    const t=BENEFIT_TEMPLATES[key];
+    if(t&&!card.annualFee) card.annualFee=t.annualFee;
+  }
+  save();
+  const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:card.id,user_id:_currentUser?.id,data:card}).then(()=>{});
+  closeModal();renderBenefits();renderCards();renderDashboard();
+}
+
+// After a Plaid connect/sync: auto-fill annual fee for confidently-matched
+// cards, and surface a one-time picker for ambiguous ones.
+function resolveCardBenefits(){
+  let changed=false;
+  cards.forEach(card=>{
+    const[key,tmpl]=matchTemplate(card);
+    if(tmpl&&!card.annualFee){ card.annualFee=tmpl.annualFee; changed=true; }
+  });
+  if(changed) save();
+  const ambiguous=cards.filter(benefitNeedsPicker);
+  if(ambiguous.length) showBenefitPicker(ambiguous);
+}
+
+function showBenefitPicker(ambiguousCards){
+  const card=ambiguousCards[0]; if(!card) return;
+  const keys=templatesForIssuer(card.issuerId);
+  const opts=keys.map(k=>`<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px" onclick="setCardBenefitTemplate('${card.id}','${k}')">${esc(BENEFIT_TEMPLATES[k].name)} <span style="color:var(--text3);margin-left:auto;font-size:12px">${fmt(BENEFIT_TEMPLATES[k].annualFee)}/yr</span></button>`).join('');
+  const over=document.createElement('div');over.className='overlay';
+  over.innerHTML=`<div class="modal" style="max-width:440px">
+    <div class="modal-title">Which card is this?</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Your bank labels this card <strong>"${esc(card.name)}"</strong> ••${esc(card.last4||'')}. Pick the matching benefit profile so we can track its credits — or choose "None of these."</div>
+    ${opts}
+    <button class="btn btn-ghost" style="width:100%;justify-content:flex-start" onclick="setCardBenefitTemplate('${card.id}','none')">None of these / other card</button>
+    <div class="modal-footer" style="margin-top:8px"><button class="btn btn-sm" onclick="closeModal()">Decide later</button></div>
+  </div>`;
+  document.getElementById('modal-root').appendChild(over);
 }
 
 function benefitPeriodValue(ben, cid){
@@ -5216,10 +5283,28 @@ function renderBenefits(){
   if(aEl) aEl.innerHTML=alerts.map(a=>{const col={urgent:'var(--red)',warn:'var(--amber)',info:'var(--accent)'}[a.t];return`<div class="alert-item ai-${a.t}"><div class="adot" style="background:${col}"></div><div>${a.msg}</div></div>`;}).join('');
 
   const matched=cards.filter(c=>matchTemplate(c)[0]!==null);
+  const needPicker=cards.filter(benefitNeedsPicker);
+  const noData=cards.filter(c=>matchTemplate(c)[0]===null&&!benefitNeedsPicker(c)&&c.benefitTemplateKey!=='none');
   const noEl=document.getElementById('benefit-no-cards'); const listEl=document.getElementById('benefit-cards-list');
-  if(!matched.length){ if(noEl)noEl.style.display='block'; if(listEl)listEl.innerHTML=''; return; }
+
+  if(!cards.length){
+    if(noEl){noEl.style.display='block';noEl.innerHTML='<span class="empty-icon">💳</span>No cards yet.<br><span style="font-size:13px;color:var(--text3)">Connect a bank or add a card, then we\'ll track its benefits and annual-fee ROI here.</span>';}
+    if(listEl)listEl.innerHTML='';return;
+  }
   if(noEl)noEl.style.display='none';
-  if(listEl) listEl.innerHTML=matched.map(c=>renderBenCard(c)).join('');
+
+  let html='';
+  // Cards we need the user to identify
+  needPicker.forEach(c=>{
+    html+=`<div class="benefit-card-wrap" style="border-left:3px solid var(--amber)"><div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><div style="flex:1"><div style="font-size:14px;font-weight:700">${esc(c.name)} ••${esc(c.last4||'')}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">We can't tell which ${esc(getIss(c.issuerId).name)} card this is from the bank's label. Tell us and we'll track its credits.</div></div><button class="btn btn-sm btn-primary" onclick="showBenefitPicker([cards.find(x=>x.id==='${c.id}')])">Identify this card</button></div></div>`;
+  });
+  // Matched cards → full ROI breakdown
+  if(matched.length) html+=matched.map(c=>renderBenCard(c)).join('');
+  // Cards with no benefit data for their issuer (honest, not a blank panel)
+  noData.forEach(c=>{
+    html+=`<div class="benefit-item" style="opacity:.85"><div style="display:flex;align-items:center;gap:10px"><div class="benefit-cat-icon" style="background:var(--bg3)">🗂️</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${esc(c.name)} ••${esc(c.last4||'')}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">We don't have benefit data for this card yet. The tracker covers Amex Platinum/Gold, Chase Sapphire Reserve/Preferred, Citi Strata Premier, and Capital One Venture X.</div></div></div></div>`;
+  });
+  if(listEl)listEl.innerHTML=html;
 }
 
 function renderBenCard(card){

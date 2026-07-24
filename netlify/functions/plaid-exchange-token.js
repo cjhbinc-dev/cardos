@@ -172,7 +172,7 @@ exports.handler = async (event) => {
     const match = existingCards.find(c =>
       c.plaidAccountId === acc.account_id ||
       (acc.mask && c.last4 === acc.mask && (c.connectionId === connectionId || c.institutionName === instName)));
-    const card = mapPlaidAccountToCard(acc, connectionId, match || null);
+    const card = mapPlaidAccountToCard(acc, connectionId, match || null, { id: institutionId, name: instName });
     const { data: saved, error: cardErr } = await supabase
       .from('cards').upsert({ id: card.id, user_id: user.id, data: card }).select('id');
     if (cardErr || !saved?.length) console.error('[plaid-exchange] card upsert FAILED for', card.id, ':', cardErr?.message || '0 rows');
