@@ -40,6 +40,9 @@ exports.handler = async (event) => {
     language: 'en',
     country_codes: ['US'],
     redirect_uri: redirectUri,
+    // Item-level webhook — set at birth so every Item reports
+    // SYNC_UPDATES_AVAILABLE / ITEM_LOGIN_REQUIRED to the receiver
+    webhook: (process.env.URL || 'https://cardos-manager.netlify.app').replace(/\/$/, '') + '/.netlify/functions/plaid-webhook',
   };
 
   if (connectionId) {
