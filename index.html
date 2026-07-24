@@ -839,6 +839,8 @@ body{background:var(--bg)}
 .empty-hero-title{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.4px;margin-bottom:7px}
 .empty-hero-sub{font-size:13.5px;color:var(--text2);line-height:1.6;max-width:420px;margin:0 auto 22px}
 .empty-mini{font-size:13px;color:var(--text3);padding:8px 2px}
+.picker-opt{display:flex;align-items:center;gap:10px;width:100%;padding:12px 14px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);cursor:pointer;transition:border-color .12s,background .12s}
+.picker-opt:hover{border-color:var(--gold);background:var(--gold-bg)}
 
 @media(max-width:560px){
   .summary-owed-val{font-size:32px}
@@ -1996,9 +1998,13 @@ function buildAlerts(){
   cards.forEach(c=>{
     if(c.status==='closed')return;
     const v=cv(c);
-    if(v.dueIn!==null&&v.dueIn<0)al.push({t:'urgent',msg:`<strong>${c.name} ••${c.last4}</strong> — payment <strong>OVERDUE</strong>. Minimum: ${fmt(c.minPayment)}.`});
-    else if(v.dueIn!==null&&v.dueIn<=3)al.push({t:'urgent',msg:`<strong>${c.name}</strong> due in <strong>${v.dueIn}d</strong>. ${c.autopay?'Autopay on ✓':'No autopay — pay '+fmt(c.minPayment)+' now'}.`});
-    else if(v.dueIn!==null&&v.dueIn<=7)al.push({t:'warn',msg:`<strong>${c.name}</strong> due ${fmtD(c.dueDate)} (${v.dueIn}d). ${c.autopay?'Autopay on.':'No autopay set.'}`});
+    // Payment alerts fire ONLY for a real, user-entered due date (dueIn!==null —
+    // we never infer one) and NEVER for autopay cards (they pay themselves).
+    if(!c.autopay&&v.dueIn!==null){
+      if(v.dueIn<0)al.push({t:'urgent',msg:`<strong>${c.name} ••${c.last4}</strong> — payment <strong>past due</strong> (${fmtD(c.dueDate)}). Minimum: ${fmt(c.minPayment)}. Turn on autopay on the card if this is covered.`});
+      else if(v.dueIn<=3)al.push({t:'urgent',msg:`<strong>${c.name}</strong> due in <strong>${v.dueIn}d</strong> — pay ${fmt(c.minPayment)} now, or set autopay.`});
+      else if(v.dueIn<=7)al.push({t:'warn',msg:`<strong>${c.name}</strong> due ${fmtD(c.dueDate)} (${v.dueIn}d). No autopay set.`});
+    }
     if(!c.isBusiness&&v.closeIn!==null&&v.closeIn>=0&&v.closeIn<=5&&v.util>10)al.push({t:'info',msg:`<strong>${c.name}</strong> closes in ${v.closeIn}d. Pay <strong>${fmt(v.toTen)}</strong> to report under 10% utilization.`});
     if(!c.isBusiness&&v.util>=50)al.push({t:'urgent',msg:`<strong>${c.name}</strong> at <strong>${pct(v.util)}</strong> utilization — very high. Pay down soon.`});
     else if(!c.isBusiness&&v.util>=30)al.push({t:'warn',msg:`<strong>${c.name}</strong> utilization <strong>${pct(v.util)}</strong>. Target under 10% before statement closes.`});
@@ -2151,9 +2157,12 @@ function dashSyncLabel(){
   return days<=0?'synced today':days===1?'synced yesterday':'synced '+days+'d ago';
 }
 
-// Card-face color: Plaid institution primary_color → hardcoded fallback → --ink
+// Card-face color: product-level (Sapphire Reserve ≠ Freedom Unlimited) →
+// Plaid institution primary_color → issuer fallback → --ink.
 const ISSUER_FACE={amex:'#016FD0',chase:'#117ACA',citi:'#003B7E',capone:'#004977',disc:'#E4681E',boa:'#012169',wells:'#B31E30',usb:'#0C2074',barc:'#00395D'};
 function cardFaceColor(c){
+  const [key]=matchTemplate(c);
+  if(key&&typeof PRODUCT_FACE!=='undefined'&&PRODUCT_FACE[key])return PRODUCT_FACE[key];
   const conn=connections.find(x=>x.id===c.connectionId);
   return (conn&&conn.primaryColor)||ISSUER_FACE[c.issuerId]||'#16233F';
 }
@@ -2198,8 +2207,8 @@ function buildAttentionCard(){
   cards.forEach(c=>{
     if(c.status==='closed')return;
     const v=cv(c);
-    // Payment due soon with a balance
-    if(c.dueDate&&v.dueIn!==null&&v.dueIn>=0&&v.dueIn<=7&&c.balance>0){
+    // Payment due soon with a balance — never for autopay cards
+    if(!c.autopay&&c.dueDate&&v.dueIn!==null&&v.dueIn>=0&&v.dueIn<=7&&c.balance>0){
       const tier=v.dueIn<=2?'high':'watch';
       const msg=`<strong>${esc(c.name)}</strong> — ${fmt(c.balance)} due ${v.dueIn===0?'today':v.dueIn===1?'tomorrow':'in '+v.dueIn+' days'} (${fmtD(c.dueDate)}).`;
       if(!best||tier==='high')best={tier,msg,sort:v.dueIn};
@@ -2797,12 +2806,21 @@ function promptCardDates(cardId){
       <div class="fg">
         <label>Payment due date</label>
         <input id="pd-due" type="date" value="${c.dueDate||''}">
-        <div style="font-size:11px;color:var(--text3);margin-top:4px">The day your minimum payment is due</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">Leave blank if you don't know it — we won't guess a date or warn you about one we made up.</div>
+      </div>
+      <div class="fg">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer"><input id="pd-autopay" type="checkbox" ${c.autopay?'checked':''} style="width:auto"> Autopay is on for this card</label>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">If autopay is on, we never send due-date or overdue alerts for this card.</div>
+      </div>
+      <div class="fg">
+        <label>Annual fee month (optional)</label>
+        <select id="pd-afm">${['—','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`<option value="${i||''}"${c.annualFeeMonth===i?' selected':''}>${m}</option>`).join('')}</select>
+        <div style="font-size:11px;color:var(--text3);margin-top:4px">When the annual fee posts — drives the fee reminder and ROI tracker</div>
       </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-sm" onclick="this.closest('.overlay').remove()">Skip for now</button>
-      <button class="btn btn-sm btn-primary" onclick="saveDatePrompt('${cardId}',this)">Save dates</button>
+      <button class="btn btn-sm btn-primary" onclick="saveDatePrompt('${cardId}',this)">Save</button>
     </div>
   </div>`;
   document.getElementById('modal-root').appendChild(over);
@@ -2816,9 +2834,13 @@ function saveDatePrompt(cardId,btn){
   if(!c)return;
   if(closeVal)c.statementClose=closeVal;
   if(dueVal)c.dueDate=dueVal;
+  c.autopay=document.getElementById('pd-autopay').checked;
+  const afm=parseInt(document.getElementById('pd-afm').value)||null;
+  c.annualFeeMonth=afm;
   save();renderDashboard();renderCards();
+  const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(()=>{});
   btn.closest('.overlay').remove();
-  showToast('Billing dates saved ✓');
+  showToast('Card details saved ✓');
 }
 function saveOffer(){
   const g=id=>(document.getElementById(id)?.value||'').trim();
@@ -5007,76 +5029,195 @@ function exportTransactionsCsv(){
 // CARD BENEFITS & ANNUAL FEE ROI TRACKER
 // ═══════════════════════════════════════════════════════
 
+// ── Benefit catalog ──────────────────────────────────────────────────────────
+// Adding a card = adding ONE object below. Each carries: name, issuer,
+// isBusiness, annualFee, source (where the numbers came from), and benefits[]
+// with a reset cadence (ongoing | monthly | quarterly | semiannual | annual |
+// per_use). FEES AND CREDITS CHANGE YEARLY — `source` cites the reference and
+// the values are current as of the noted date; a wrong number is worse than a
+// missing one, so unverified minor credits are omitted rather than guessed.
+// Benefit types drive the ROI math (see benefitPeriodValue): only credits with
+// value>0 count toward offsetting the annual fee.
 const BENEFIT_TEMPLATES = {
+  // ── AMEX — consumer ──
   amex_platinum: {
-    name: 'Amex Platinum', annualFee: 695,
-    match: c => c.issuerId === 'amex' && /platinum/i.test(c.name),
-    benefits: [
-      { id:'plat_hotel',   name:'$200 Hotel Credit',                        value:200, type:'annual',    cat:'travel',        req:true,  desc:'Fine Hotels + Resorts or The Hotel Collection ($200/year)',                                                    how:'Book through AmexTravel.com at Fine Hotels & Resorts or The Hotel Collection (2-night minimum for Hotel Collection). Credit posts within 8–12 weeks.' },
-      { id:'plat_digital', name:'$240 Digital Entertainment Credit',        value:240, type:'monthly',   monthlyValue:20,     cat:'entertainment', req:false, desc:'$20/month on Disney+, Hulu, ESPN+, Peacock, Audible, SiriusXM, or The New York Times',  how:'No enrollment needed — just charge to your Platinum card at eligible services. Credit auto-posts.' },
-      { id:'plat_airline', name:'$200 Airline Fee Credit',                  value:200, type:'annual',    cat:'travel',        req:true,  desc:'$200 in statement credits for incidental fees at your one selected airline',                                     how:'Select your airline at amexbenefit.com/airlinechoice by Jan 31 each year. Works for seat upgrades, checked bags, in-flight Wi-Fi, and lounge day passes.' },
-      { id:'plat_uber',    name:'$200 Uber Cash',                           value:200, type:'monthly',   monthlyValue:15,     cat:'transport',     req:true,  desc:'$15/month ($35 in December) = $200/year for Uber rides or Uber Eats',                      how:'Add your Amex Platinum at uber.com/account. $15 loads each month automatically — credit expires at month-end, so use it!' },
-      { id:'plat_clear',   name:'$189 CLEAR Plus Credit',                   value:189, type:'annual',    cat:'travel',        req:true,  desc:'Statement credit for CLEAR Plus membership ($189/year value)',                                                    how:'Sign up at clearme.com and pay with your Platinum card. Works at 50+ airports and venues for biometric security screening.' },
-      { id:'plat_ge',      name:'$100 Global Entry / TSA PreCheck',         value:100, type:'per_use',   cat:'travel',        req:true,  desc:'Application fee credit every 4.5 years (Global Entry $100, TSA PreCheck $78)',                                    how:'Apply at cbp.gov (Global Entry) or tsa.gov (TSA PreCheck). Pay the application fee with Platinum — credit posts within 1–2 billing cycles.' },
-      { id:'plat_equinox', name:'$300 Equinox Credit',                      value:300, type:'annual',    cat:'entertainment', req:true,  desc:'$300/year toward Equinox gym membership or Equinox+ app',                                                         how:'Enroll at equinox.com/amex first. Then pay your Equinox monthly membership with Platinum. Credits accumulate to $300/year.' },
-      { id:'plat_walmart', name:'$155 Walmart+ Credit',                     value:155, type:'monthly',   monthlyValue:12.95,  cat:'shopping',      req:true,  desc:'$12.95/month (~$155/year) Walmart+ membership reimbursed',                                  how:'Enroll in Walmart+ at walmart.com/plus. Pay the monthly fee ($12.95) with your Platinum card. Statement credit posts automatically.' },
-      { id:'plat_saks',    name:'$100 Saks Fifth Avenue Credit',            value:100, type:'semiannual',cat:'shopping',      req:false, desc:'$50 Jan–Jun + $50 Jul–Dec at Saks Fifth Avenue in-store or online',                                               how:'No enrollment. Shop at Saks (saks.com or in-store) and pay with Platinum. Credits auto-apply up to $50 per half-year.' },
-      { id:'plat_lounge',  name:'Lounge Access (Centurion + Priority Pass)', value:500, type:'annual',   cat:'travel',        req:true,  desc:'Unlimited Centurion Lounge + Priority Pass Select + Delta Sky Club (up to 5 visits/year)',                         how:'Centurion: show Platinum at door. Priority Pass: activate at amexbenefit.com/prioritypass. Delta Sky Club: show Platinum + same-day Delta boarding pass.' },
-      { id:'plat_fhr',     name:'Fine Hotels + Resorts Benefits',           value:200, type:'annual',    cat:'travel',        req:true,  desc:'Room upgrade, daily breakfast for 2, 4pm late checkout, noon early check-in, $100 property credit, free Wi-Fi',   how:'Book through AmexTravel.com/fhr or call 1-800-525-3355. Benefits apply automatically at check-in on 2+ night stays.' },
+    name:'Amex Platinum', issuer:'amex', isBusiness:false, annualFee:895,
+    source:'americanexpress.com Platinum benefits, fee current 2026',
+    match:c=>c.issuerId==='amex'&&/platinum/i.test(c.name),
+    benefits:[
+      {id:'plat_airline',name:'$200 Airline Fee Credit',value:200,type:'annual',cat:'travel',req:true,desc:'Incidental fees at one selected airline',how:'Select your airline at amex.com by Jan 31; covers bags, seats, in-flight purchases.'},
+      {id:'plat_digital',name:'$240 Digital Entertainment',value:240,type:'monthly',monthlyValue:20,cat:'entertainment',req:false,desc:'$20/mo across Disney+, Hulu, ESPN+, Peacock, NYT, Audible',how:'Charge eligible services to the card; credit auto-posts.'},
+      {id:'plat_uber',name:'$200 Uber Cash',value:200,type:'monthly',monthlyValue:15,cat:'transport',req:true,desc:'$15/mo (+$20 in December) for Uber & Uber Eats',how:'Add the card at uber.com; expires monthly — use it.'},
+      {id:'plat_clear',name:'$209 CLEAR Plus',value:209,type:'annual',cat:'travel',req:true,desc:'CLEAR Plus membership reimbursed',how:'Pay CLEAR with the card.'},
+      {id:'plat_ge',name:'$120 Global Entry / TSA',value:120,type:'per_use',cat:'travel',req:true,desc:'Application fee credit every ~4 years',how:'Pay the app fee with the card.'},
+      {id:'plat_hotel',name:'$200 FHR/Hotel Credit',value:200,type:'annual',cat:'travel',req:true,desc:'Prepaid Fine Hotels + Resorts / The Hotel Collection',how:'Book through Amex Travel, 2-night min for THC.'},
     ]
   },
   amex_gold: {
-    name: 'Amex Gold', annualFee: 250,
-    match: c => c.issuerId === 'amex' && /\bgold\b/i.test(c.name) && !/platinum/i.test(c.name),
-    benefits: [
-      { id:'gold_dining',  name:'$120 Dining Credit',         value:120, type:'monthly',   monthlyValue:10, cat:'dining',     req:false, desc:'$10/month at Grubhub, The Cheesecake Factory, Goldbelly, Wine.com & participating restaurants', how:'No enrollment needed. Charge your Gold card at eligible dining merchants. Credit posts automatically within 2–3 business days.' },
-      { id:'gold_uber',    name:'$120 Uber Cash',             value:120, type:'monthly',   monthlyValue:10, cat:'transport',  req:true,  desc:'$10/month for Uber rides or Uber Eats',                                                          how:'Add your Amex Gold to uber.com/account. $10 Uber Cash loads each month and expires at month-end — use it every month!' },
-      { id:'gold_resy',    name:'$100 Resy Credit',           value:100, type:'semiannual',                 cat:'dining',     req:true,  desc:'$50 Jan–Jun + $50 Jul–Dec at eligible Resy restaurants',                                         how:'Book through the Resy app or resy.com and pay with Gold card. Statement credit posts within 90 days.' },
-      { id:'gold_dunkin',  name:"$84 Dunkin' Credit",         value:84,  type:'monthly',   monthlyValue:7,  cat:'dining',     req:true,  desc:"$7/month at Dunkin'",                                                                            how:"Enroll at americanexpress.com/benefitsenroll. Then pay at any Dunkin' with your Gold card." },
-      { id:'gold_4x_dine', name:'4x Points on Dining',        value:0,   type:'ongoing',                   cat:'dining',     req:false, desc:'4x Membership Rewards at restaurants worldwide (takeout and delivery included)',                  how:'Just use your Gold card at any restaurant. Points post within 1–2 billing cycles. Transfer to 20+ airline and hotel partners.' },
-      { id:'gold_4x_groc', name:'4x on U.S. Supermarkets',   value:0,   type:'ongoing',                   cat:'groceries',  req:false, desc:'4x Membership Rewards at U.S. supermarkets (up to $25,000/year, then 1x)',                        how:'Use Gold at grocery stores. Excludes Walmart, Target, and wholesale clubs. Great with Instacart and Fresh Direct.' },
+    name:'Amex Gold', issuer:'amex', isBusiness:false, annualFee:325,
+    source:'americanexpress.com Gold benefits, fee current 2026',
+    match:c=>c.issuerId==='amex'&&/\bgold\b/i.test(c.name)&&!/platinum/i.test(c.name),
+    benefits:[
+      {id:'gold_dining',name:'$120 Dining Credit',value:120,type:'monthly',monthlyValue:10,cat:'dining',req:true,desc:'$10/mo at Grubhub, Cheesecake Factory, Goldbelly, Wine.com, Milk Bar',how:'Enroll, then pay eligible partners with the card.'},
+      {id:'gold_uber',name:'$120 Uber Cash',value:120,type:'monthly',monthlyValue:10,cat:'transport',req:true,desc:'$10/mo for Uber rides & Uber Eats (US)',how:'Add the card at uber.com; expires monthly.'},
+      {id:'gold_resy',name:'$100 Resy Credit',value:100,type:'semiannual',cat:'dining',req:true,desc:'$50 Jan–Jun + $50 Jul–Dec at Resy restaurants',how:'Book via Resy and pay with the card.'},
+      {id:'gold_dunkin',name:'$84 Dunkin’ Credit',value:84,type:'monthly',monthlyValue:7,cat:'dining',req:true,desc:'$7/mo at Dunkin’',how:'Enroll, then pay at Dunkin’ with the card.'},
     ]
   },
+  amex_bcp: {
+    name:'Blue Cash Preferred', issuer:'amex', isBusiness:false, annualFee:95,
+    source:'americanexpress.com BCP, fee current 2026',
+    match:c=>c.issuerId==='amex'&&/blue cash preferred/i.test(c.name),
+    benefits:[
+      {id:'bcp_groc',name:'6% at U.S. Supermarkets',value:0,type:'ongoing',cat:'groceries',req:false,desc:'6% back up to $6,000/yr, then 1%',how:'Use at U.S. supermarkets.'},
+      {id:'bcp_stream',name:'6% on Select Streaming',value:0,type:'ongoing',cat:'entertainment',req:false,desc:'6% on U.S. streaming subscriptions',how:'Charge streaming services to the card.'},
+      {id:'bcp_transit',name:'3% Transit & Gas',value:0,type:'ongoing',cat:'transport',req:false,desc:'3% on transit and U.S. gas stations',how:'Use for transit and fuel.'},
+    ]
+  },
+  amex_bce: {
+    name:'Blue Cash Everyday', issuer:'amex', isBusiness:false, annualFee:0,
+    source:'americanexpress.com BCE, no annual fee',
+    match:c=>c.issuerId==='amex'&&/blue cash everyday/i.test(c.name),
+    benefits:[
+      {id:'bce_groc',name:'3% U.S. Supermarkets',value:0,type:'ongoing',cat:'groceries',req:false,desc:'3% back up to $6,000/yr, then 1%',how:'Use at U.S. supermarkets.'},
+      {id:'bce_online',name:'3% U.S. Online Retail',value:0,type:'ongoing',cat:'shopping',req:false,desc:'3% on U.S. online retail up to $6,000/yr',how:'Shop online with the card.'},
+    ]
+  },
+  // ── AMEX — business ──
+  amex_biz_platinum: {
+    name:'Amex Business Platinum', issuer:'amex', isBusiness:true, annualFee:895,
+    source:'awardwallet.com/upgradedpoints Business Platinum 2026; fee $895',
+    match:c=>c.issuerId==='amex'&&/platinum/i.test(c.name),
+    benefits:[
+      {id:'bplat_airline',name:'$200 Airline Fee Credit',value:200,type:'annual',cat:'travel',req:true,desc:'Incidental fees at one selected airline',how:'Select airline at amex.com; covers bags, seats, in-flight.'},
+      {id:'bplat_dell',name:'$150 Dell Credit',value:150,type:'semiannual',cat:'shopping',req:true,desc:'$75 Jan–Jun + $75 Jul–Dec at U.S. Dell',how:'Buy direct from Dell with the card.'},
+      {id:'bplat_indeed',name:'$360 Indeed Credit',value:360,type:'quarterly',monthlyValue:90,cat:'other',req:true,desc:'$90/quarter on Indeed',how:'Pay Indeed with the card; resets quarterly.'},
+      {id:'bplat_adobe',name:'$250 Adobe Credit',value:250,type:'annual',cat:'other',req:true,desc:'After $600/yr on Adobe (annual plans)',how:'Buy Adobe direct with the card.'},
+      {id:'bplat_wireless',name:'$120 Wireless Credit',value:120,type:'monthly',monthlyValue:10,cat:'utilities',req:true,desc:'$10/mo on U.S. wireless carriers',how:'Pay your wireless bill with the card.'},
+      {id:'bplat_clear',name:'$209 CLEAR Plus',value:209,type:'annual',cat:'travel',req:true,desc:'CLEAR Plus membership reimbursed',how:'Pay CLEAR with the card.'},
+      {id:'bplat_ge',name:'$120 Global Entry / TSA',value:120,type:'per_use',cat:'travel',req:true,desc:'Application fee credit every ~4 years',how:'Pay the app fee with the card.'},
+    ]
+  },
+  amex_biz_gold: {
+    name:'Amex Business Gold', issuer:'amex', isBusiness:true, annualFee:375,
+    source:'americanexpress.com Business Gold, fee current 2026',
+    match:c=>c.issuerId==='amex'&&/\bgold\b/i.test(c.name)&&!/platinum/i.test(c.name),
+    benefits:[
+      {id:'bgold_flex',name:'$240 Flexible Business Credit',value:240,type:'monthly',monthlyValue:20,cat:'other',req:true,desc:'$20/mo across FedEx, Grubhub, Office Supply stores',how:'Enroll, then pay eligible partners with the card.'},
+      {id:'bgold_walmart',name:'$155 Walmart+ Credit',value:155,type:'monthly',monthlyValue:12.95,cat:'shopping',req:true,desc:'$12.95/mo Walmart+ membership reimbursed',how:'Pay the monthly Walmart+ fee with the card.'},
+    ]
+  },
+  // ── CHASE — consumer ──
   chase_reserve: {
-    name: 'Chase Sapphire Reserve', annualFee: 550,
-    match: c => c.issuerId === 'chase' && /sapphire reserve/i.test(c.name),
-    benefits: [
-      { id:'csr_travel',   name:'$300 Annual Travel Credit',            value:300, type:'annual',   cat:'travel',    req:false, desc:'First $300 in travel purchases automatically reimbursed each cardmember year',                         how:'No enrollment. Use your Reserve for any travel (flights, hotels, Uber, Lyft, parking, tolls, Airbnb). Credits apply automatically in order charges post.' },
-      { id:'csr_ge',       name:'$100 Global Entry / TSA PreCheck',     value:100, type:'per_use',  cat:'travel',    req:true,  desc:'Application fee credit every 4 years',                                                                  how:'Apply for Global Entry at cbp.gov ($100) or TSA PreCheck at tsa.gov ($78). Pay the fee with your Reserve card.' },
-      { id:'csr_pp',       name:'Priority Pass Select Lounge Access',   value:300, type:'annual',   cat:'travel',    req:true,  desc:'Unlimited lounge visits + 2 guests free at 1,300+ Priority Pass lounges worldwide',                    how:'Activate at prioritypass.com using the link in your Chase welcome kit. Download the Priority Pass app to find lounges.' },
-      { id:'csr_lyft',     name:'Lyft Pink All Access',                 value:199, type:'annual',   cat:'transport', req:true,  desc:'Complimentary 1-year Lyft Pink All Access membership ($199 value)',                                    how:'Activate through the Chase app under Card Benefits. Includes 5% off rides, priority pickup, and surprise perks.' },
-      { id:'csr_dd',       name:'$10/Month DoorDash Credit',            value:120, type:'monthly',  monthlyValue:10, cat:'dining', req:true, desc:'$10/month DashPass credit (verify current end date)',                                    how:'Activate DashPass through Chase Benefits portal. Credit applies automatically to DoorDash and Caviar orders each month.' },
-      { id:'csr_3x',       name:'3x Points on Travel & Dining',         value:0,   type:'ongoing',  cat:'travel',    req:false, desc:'3x Ultimate Rewards on all travel and dining; worth 1.5¢ each through Chase Travel',                  how:'Use Reserve for all travel and dining. Points transfer 1:1 to 14 airline and hotel partners or redeem at 1.5¢ through Chase Travel.' },
+    name:'Chase Sapphire Reserve', issuer:'chase', isBusiness:false, annualFee:795,
+    source:'chase.com Sapphire Reserve, fee current 2026 ($795)',
+    match:c=>c.issuerId==='chase'&&/sapphire reserve/i.test(c.name),
+    benefits:[
+      {id:'csr_travel',name:'$300 Annual Travel Credit',value:300,type:'annual',cat:'travel',req:false,desc:'First $300 in travel auto-reimbursed each year',how:'No enrollment — any travel spend counts.'},
+      {id:'csr_ge',name:'$120 Global Entry / TSA',value:120,type:'per_use',cat:'travel',req:true,desc:'Application fee credit every ~4 years',how:'Pay the app fee with the card.'},
+      {id:'csr_dd',name:'$120 DoorDash Credit',value:120,type:'monthly',monthlyValue:10,cat:'dining',req:true,desc:'$10/mo DashPass credit (verify current terms)',how:'Activate DashPass via Chase.'},
     ]
   },
   chase_preferred: {
-    name: 'Chase Sapphire Preferred', annualFee: 95,
-    match: c => c.issuerId === 'chase' && /sapphire preferred/i.test(c.name),
-    benefits: [
-      { id:'csp_hotel',    name:'$50 Annual Hotel Credit',              value:50,  type:'annual',   cat:'travel', req:true,  desc:'$50 statement credit for hotel stays booked through Chase Ultimate Rewards',                            how:'Book at chase.com/ultimaterewards or in the Chase app under Travel. Credit auto-applies to your first eligible hotel booking each year.' },
-      { id:'csp_dd',       name:'$10/Month DoorDash Credit',            value:120, type:'monthly',  monthlyValue:10, cat:'dining', req:true, desc:'$10/month DashPass credit (verify current availability)',                          how:'Activate DashPass through Chase Benefits. Credit applies automatically to DoorDash/Caviar orders each month.' },
-      { id:'csp_2x',       name:'2x Points on Travel & Dining',         value:0,   type:'ongoing',  cat:'travel', req:false, desc:'2x Ultimate Rewards on travel and dining; worth 1.25¢ through Chase Travel',                         how:'Use Preferred for all travel and dining. Points transfer 1:1 to airline/hotel partners or redeem at 1.25¢ via Chase Travel.' },
+    name:'Chase Sapphire Preferred', issuer:'chase', isBusiness:false, annualFee:95,
+    source:'chase.com Sapphire Preferred, fee current 2026',
+    match:c=>c.issuerId==='chase'&&/sapphire preferred/i.test(c.name),
+    benefits:[
+      {id:'csp_hotel',name:'$50 Hotel Credit',value:50,type:'annual',cat:'travel',req:true,desc:'$50/yr on hotels booked via Chase Travel',how:'Book a hotel through Chase Travel.'},
+      {id:'csp_dd',name:'$120 DoorDash Credit',value:120,type:'monthly',monthlyValue:10,cat:'dining',req:true,desc:'$10/mo DashPass credit (verify current terms)',how:'Activate DashPass via Chase.'},
     ]
   },
+  chase_freedom_unlimited: {
+    name:'Chase Freedom Unlimited', issuer:'chase', isBusiness:false, annualFee:0,
+    source:'chase.com Freedom Unlimited, no annual fee',
+    match:c=>c.issuerId==='chase'&&/freedom unlimited/i.test(c.name),
+    benefits:[{id:'cfu_15',name:'1.5% on Everything',value:0,type:'ongoing',cat:'other',req:false,desc:'1.5% back on all purchases; 3% dining & drugstores, 5% travel via Chase',how:'Use for non-category spend.'}]
+  },
+  chase_freedom_flex: {
+    name:'Chase Freedom Flex', issuer:'chase', isBusiness:false, annualFee:0,
+    source:'chase.com Freedom Flex, no annual fee',
+    match:c=>c.issuerId==='chase'&&/freedom flex/i.test(c.name),
+    benefits:[{id:'cff_5',name:'5% Rotating Categories',value:0,type:'ongoing',cat:'other',req:true,desc:'5% on quarterly categories (activate), up to $1,500/qtr',how:'Activate each quarter at chase.com.'}]
+  },
+  // ── CHASE — business (Ink) ──
+  chase_ink_preferred: {
+    name:'Ink Business Preferred', issuer:'chase', isBusiness:true, annualFee:95,
+    source:'chase.com Ink Business Preferred, fee current 2026',
+    match:c=>c.issuerId==='chase'&&/ink/i.test(c.name)&&/preferred/i.test(c.name),
+    benefits:[{id:'inkp_3x',name:'3x on Business Categories',value:0,type:'ongoing',cat:'other',req:false,desc:'3x on travel, shipping, internet/cable/phone, ad spend (first $150k/yr)',how:'Use for eligible business spend.'}]
+  },
+  chase_ink_cash: {
+    name:'Ink Business Cash', issuer:'chase', isBusiness:true, annualFee:0,
+    source:'chase.com Ink Business Cash, no annual fee',
+    match:c=>c.issuerId==='chase'&&/ink/i.test(c.name)&&/cash/i.test(c.name),
+    benefits:[{id:'inkc_5',name:'5% Office & Telecom',value:0,type:'ongoing',cat:'other',req:false,desc:'5% at office supply stores and on internet/cable/phone (first $25k/yr)',how:'Use for eligible categories.'}]
+  },
+  chase_ink_unlimited: {
+    name:'Ink Business Unlimited', issuer:'chase', isBusiness:true, annualFee:0,
+    source:'chase.com Ink Business Unlimited, no annual fee',
+    match:c=>c.issuerId==='chase'&&/ink/i.test(c.name)&&/unlimited/i.test(c.name),
+    benefits:[{id:'inku_15',name:'1.5% on Everything',value:0,type:'ongoing',cat:'other',req:false,desc:'Unlimited 1.5% back on all business purchases',how:'Use for all business spend.'}]
+  },
+  // ── CITI — consumer ──
   citi_strata: {
-    name: 'Citi Strata Premier', annualFee: 95,
-    match: c => c.issuerId === 'citi' && /(strata|premier)/i.test(c.name),
-    benefits: [
-      { id:'citi_hotel',   name:'$100 Annual Hotel Savings',            value:100, type:'annual',   cat:'travel', req:true,  desc:'$100 off a single hotel stay of $500+ booked through CitiTravel.com (once per calendar year)',          how:'Go to CitiTravel.com, book a hotel stay totaling $500+, and pay with your Strata Premier. The $100 discount applies automatically at checkout.' },
-      { id:'citi_3x',      name:'3x Points on Key Categories',          value:0,   type:'ongoing',  cat:'other',  req:false, desc:'3x ThankYou Points on restaurants, grocery, gas, air travel, and hotels',                            how:'Use Strata Premier at all eligible categories. Points transfer 1:1 to 15+ airline/hotel partners including Flying Blue, Turkish Miles&Smiles, and Wyndham.' },
+    name:'Citi Strata Premier', issuer:'citi', isBusiness:false, annualFee:95,
+    source:'citi.com Strata Premier, fee current 2026',
+    match:c=>c.issuerId==='citi'&&/strata|premier/i.test(c.name),
+    benefits:[
+      {id:'citi_hotel',name:'$100 Annual Hotel Savings',value:100,type:'annual',cat:'travel',req:true,desc:'$100 off a single $500+ hotel stay via CitiTravel',how:'Book a $500+ hotel at CitiTravel.com.'},
+      {id:'citi_3x',name:'3x Key Categories',value:0,type:'ongoing',cat:'other',req:false,desc:'3x on restaurants, groceries, gas, air travel, hotels',how:'Use in eligible categories.'},
     ]
   },
+  citi_double_cash: {
+    name:'Citi Double Cash', issuer:'citi', isBusiness:false, annualFee:0,
+    source:'citi.com Double Cash, no annual fee',
+    match:c=>c.issuerId==='citi'&&/double cash/i.test(c.name),
+    benefits:[{id:'cdc_2',name:'2% on Everything',value:0,type:'ongoing',cat:'other',req:false,desc:'1% when you buy + 1% when you pay',how:'Use for all spend and pay on time.'}]
+  },
+  citi_custom_cash: {
+    name:'Citi Custom Cash', issuer:'citi', isBusiness:false, annualFee:0,
+    source:'citi.com Custom Cash, no annual fee',
+    match:c=>c.issuerId==='citi'&&/custom cash/i.test(c.name),
+    benefits:[{id:'ccc_5',name:'5% Top Category',value:0,type:'ongoing',cat:'other',req:false,desc:'5% on your top eligible category each cycle, up to $500',how:'Automatic — highest category wins.'}]
+  },
+  // ── CAPITAL ONE — consumer ──
   capone_venture_x: {
-    name: 'Capital One Venture X', annualFee: 395,
-    match: c => c.issuerId === 'capone' && /venture.?x/i.test(c.name),
-    benefits: [
-      { id:'vx_travel',    name:'$300 Annual Travel Credit',            value:300, type:'annual',   cat:'travel', req:true,  desc:'$300 in statement credits for bookings through Capital One Travel each cardmember year',                how:'Book flights, hotels, or rental cars at capitalone.com/travel. Credits apply to your first $300 in Capital One Travel bookings per cardmember year.' },
-      { id:'vx_miles',     name:'10,000 Anniversary Bonus Miles',       value:100, type:'annual',   cat:'other',  req:false, desc:'10,000 bonus miles (~$100 value) credited automatically on your account anniversary',                   how:'Miles credit automatically on your account anniversary. Redeem at 1¢/mile through Capital One Travel or transfer to 15+ airline/hotel partners.' },
-      { id:'vx_lounge',    name:'Capital One + Priority Pass Lounges',  value:300, type:'annual',   cat:'travel', req:true,  desc:'Unlimited Capital One Lounge + Priority Pass for cardholder + 2 guests per visit',                    how:'Enroll in Priority Pass through your Capital One account. For Capital One Lounges, show your Venture X at the door — no reservation needed.' },
-      { id:'vx_ge',        name:'$100 Global Entry / TSA PreCheck',     value:100, type:'per_use',  cat:'travel', req:true,  desc:'Application fee credit every 4 years',                                                              how:'Pay your Global Entry ($100) or TSA PreCheck ($78) application fee with Venture X. Credit posts within 1–2 billing cycles.' },
-      { id:'vx_2x',        name:'2x Miles on All Purchases',            value:0,   type:'ongoing',  cat:'other',  req:false, desc:'2x unlimited miles; 5x hotels + rental cars; 10x hotels + rental cars via Capital One Travel',        how:'Use Venture X for all purchases to earn 2x. Book hotels and rentals through capitalone.com/travel for up to 10x miles.' },
+    name:'Capital One Venture X', issuer:'capone', isBusiness:false, annualFee:395,
+    source:'capitalone.com Venture X, fee current 2026',
+    match:c=>c.issuerId==='capone'&&/venture.?x/i.test(c.name),
+    benefits:[
+      {id:'vx_travel',name:'$300 Travel Credit',value:300,type:'annual',cat:'travel',req:true,desc:'$300/yr on Capital One Travel bookings',how:'Book at capitalone.com/travel.'},
+      {id:'vx_miles',name:'10,000 Anniversary Miles',value:100,type:'annual',cat:'other',req:false,desc:'~$100 value, auto-credited each anniversary',how:'Automatic on your anniversary.'},
+      {id:'vx_ge',name:'$120 Global Entry / TSA',value:120,type:'per_use',cat:'travel',req:true,desc:'Application fee credit every ~4 years',how:'Pay the app fee with the card.'},
     ]
   },
+  capone_venture: {
+    name:'Capital One Venture', issuer:'capone', isBusiness:false, annualFee:95,
+    source:'capitalone.com Venture, fee current 2026',
+    match:c=>c.issuerId==='capone'&&/venture\b/i.test(c.name)&&!/venture.?x/i.test(c.name),
+    benefits:[
+      {id:'v_ge',name:'$120 Global Entry / TSA',value:120,type:'per_use',cat:'travel',req:true,desc:'Application fee credit every ~4 years',how:'Pay the app fee with the card.'},
+      {id:'v_2x',name:'2x Miles on Everything',value:0,type:'ongoing',cat:'other',req:false,desc:'Unlimited 2x miles; 5x on Capital One Travel',how:'Use for all purchases.'},
+    ]
+  },
+  capone_savor: {
+    name:'Capital One Savor', issuer:'capone', isBusiness:false, annualFee:0,
+    source:'capitalone.com Savor, no annual fee',
+    match:c=>c.issuerId==='capone'&&/savor/i.test(c.name),
+    benefits:[{id:'sv_3',name:'3% Dining & Entertainment',value:0,type:'ongoing',cat:'dining',req:false,desc:'3% on dining, entertainment, streaming, groceries',how:'Use in eligible categories.'}]
+  },
+};
+
+// Product-level face colors (Part C) — keyed like templates, so a Sapphire
+// Reserve reads differently from a Freedom Unlimited. Falls back to institution
+// color, then --ink. No reproduced issuer artwork.
+const PRODUCT_FACE = {
+  amex_platinum:'#E5E4E2', amex_biz_platinum:'#2E2E2E', amex_gold:'#C6A15B', amex_biz_gold:'#B08D3F',
+  amex_bcp:'#1D6BB0', amex_bce:'#4AA3DF',
+  chase_reserve:'#1A1A2E', chase_preferred:'#0F4C81', chase_freedom_unlimited:'#117ACA', chase_freedom_flex:'#0E3A5E',
+  chase_ink_preferred:'#123B63', chase_ink_cash:'#0E6B3E', chase_ink_unlimited:'#117ACA',
+  citi_strata:'#0B3D91', citi_double_cash:'#003B7E', citi_custom_cash:'#1466B8',
+  capone_venture_x:'#0B1E2D', capone_venture:'#8B1E2D', capone_savor:'#C0392B',
 };
 
 // ── Benefit usage persistence ────────────────────────────────
@@ -5100,29 +5241,40 @@ async function loadBenefitsFromSupabase(){
   } catch(e){ console.warn('benefits load:', e); }
 }
 
-// Which issuer each template belongs to (templates match on issuerId + a name regex)
-const TEMPLATE_ISSUER = {amex_platinum:'amex',amex_gold:'amex',chase_reserve:'chase',chase_preferred:'chase',citi_strata:'citi',capone_venture_x:'capone'};
-function templatesForIssuer(issuerId){ return Object.keys(BENEFIT_TEMPLATES).filter(k=>TEMPLATE_ISSUER[k]===issuerId); }
+// Is this card a business card? From the user's explicit flag, or the account
+// name (Plaid returns "Business Platinum", "Ink Business …", etc.).
+function cardIsBusiness(c){
+  if(!c) return false;
+  if(c.isBusiness===true) return true;
+  if(c.isBusiness===false && !/\bbusiness\b|\bink\b/i.test(c.name||'')) return false;
+  return /\bbusiness\b|\bink\b/i.test(c.name||'');
+}
+
+// Templates for a card's issuer AND matching business/consumer class — the hard
+// guard so a Business Platinum can never match the consumer Platinum template.
+function templatesForCard(card){
+  const biz=cardIsBusiness(card);
+  return Object.keys(BENEFIT_TEMPLATES).filter(k=>BENEFIT_TEMPLATES[k].issuer===(card&&card.issuerId)&&!!BENEFIT_TEMPLATES[k].isBusiness===biz);
+}
 
 // Match order: (1) the user's explicit choice always wins and survives re-sync;
-// (2) a confident name-regex match; otherwise no template — we never silently
-// guess (a Citi Double Cash must not inherit Strata Premier's benefits), we ask.
+// (2) a confident name match within the correct issuer AND business/consumer
+// class; otherwise no template — we never silently guess, we ask.
 function matchTemplate(card){
   if(card&&card.benefitTemplateKey){
     if(card.benefitTemplateKey==='none') return [null,null];
     const t=BENEFIT_TEMPLATES[card.benefitTemplateKey];
     if(t) return [card.benefitTemplateKey,t];
   }
-  const keys=templatesForIssuer(card&&card.issuerId);
+  const keys=templatesForCard(card);
   for(const k of keys){ if(BENEFIT_TEMPLATES[k].match(card)) return [k,BENEFIT_TEMPLATES[k]]; }
   return [null,null];
 }
 
-// A card needs the picker when its issuer HAS templates, none matched by name,
-// and the user hasn't chosen yet. (Issuers with no templates → honest empty.)
+// Picker needed when the issuer+class HAS templates, none matched, no user choice.
 function benefitNeedsPicker(card){
   if(!card||card.benefitTemplateKey) return false;
-  const keys=templatesForIssuer(card.issuerId);
+  const keys=templatesForCard(card);
   if(!keys.length) return false;
   return !keys.some(k=>BENEFIT_TEMPLATES[k].match(card));
 }
@@ -5157,30 +5309,42 @@ function resolveCardBenefits(){
 
 function showBenefitPicker(ambiguousCards){
   const card=ambiguousCards[0]; if(!card) return;
-  const keys=templatesForIssuer(card.issuerId);
-  const opts=keys.map(k=>`<button class="btn" style="width:100%;justify-content:flex-start;margin-bottom:8px" onclick="setCardBenefitTemplate('${card.id}','${k}')">${esc(BENEFIT_TEMPLATES[k].name)} <span style="color:var(--text3);margin-left:auto;font-size:12px">${fmt(BENEFIT_TEMPLATES[k].annualFee)}/yr</span></button>`).join('');
+  // The picker is an explicit human choice, so it shows ALL of the issuer's
+  // templates (both classes) — the business/consumer guard only prevents silent
+  // auto-matches, it shouldn't hide the user's real card here.
+  const keys=Object.keys(BENEFIT_TEMPLATES).filter(k=>BENEFIT_TEMPLATES[k].issuer===card.issuerId);
+  const opts=keys.map(k=>{
+    const t=BENEFIT_TEMPLATES[k];
+    const headline=t.benefits.filter(b=>b.value>0).slice(0,2).map(b=>b.name.replace(/^\$\d+\s*/,'')).join(', ')||t.benefits[0]?.name||'';
+    const bizTag=t.isBusiness?'<span class="badge bg-blue" style="font-size:10px;margin-left:6px">Business</span>':'';
+    return`<button class="picker-opt" onclick="setCardBenefitTemplate('${card.id}','${k}')"><div style="flex:1;text-align:left"><div style="font-weight:600;font-size:13px">${esc(t.name)}${bizTag}</div><div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(headline)}</div></div><span style="color:var(--text2);font-size:12px;font-weight:600;flex-shrink:0">${t.annualFee?fmt(t.annualFee)+'/yr':'No fee'}</span></button>`;
+  }).join('');
   const over=document.createElement('div');over.className='overlay';
-  over.innerHTML=`<div class="modal" style="max-width:440px">
+  over.innerHTML=`<div class="modal" style="max-width:460px">
     <div class="modal-title">Which card is this?</div>
-    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Your bank labels this card <strong>"${esc(card.name)}"</strong> ••${esc(card.last4||'')}. Pick the matching benefit profile so we can track its credits — or choose "None of these."</div>
-    ${opts}
-    <button class="btn btn-ghost" style="width:100%;justify-content:flex-start" onclick="setCardBenefitTemplate('${card.id}','none')">None of these / other card</button>
-    <div class="modal-footer" style="margin-top:8px"><button class="btn btn-sm" onclick="closeModal()">Decide later</button></div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:16px">Your bank labels this card <strong>"${esc(card.name)}"</strong> ••${esc(card.last4||'')}. Pick the matching profile so we can track its credits — or choose "None of these."</div>
+    <div style="display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto">${opts}
+    <button class="picker-opt" onclick="setCardBenefitTemplate('${card.id}','none')"><span style="font-weight:600;font-size:13px;color:var(--text2)">None of these / other card</span></button></div>
+    <div class="modal-footer" style="margin-top:12px"><button class="btn btn-sm" onclick="closeModal()">Decide later</button></div>
   </div>`;
   document.getElementById('modal-root').appendChild(over);
 }
 
 function benefitPeriodValue(ben, cid){
-  const bu = getBU(cid, ben.id); const mo = TODAY.getMonth(); const yr = TODAY.getFullYear();
+  const bu = getBU(cid, ben.id); const yr = TODAY.getFullYear();
+  const months = bu.months || {};
   if(ben.type === 'ongoing') return 0;
   if(ben.type === 'per_use' || ben.type === 'annual') return bu.used ? ben.value : 0;
   if(ben.type === 'monthly'){
-    const months = bu.months || {};
-    return Object.keys(months).filter(m => m.startsWith(yr+'') && months[m]).length * (ben.monthlyValue||0);
+    return Object.keys(months).filter(m => /^\d{4}-\d{2}$/.test(m) && m.startsWith(yr+'-') && months[m]).length * (ben.monthlyValue||0);
+  }
+  if(ben.type === 'quarterly'){
+    const per = ben.monthlyValue || (ben.value/4);
+    return [yr+'-Q1',yr+'-Q2',yr+'-Q3',yr+'-Q4'].filter(k=>months[k]).length * per;
   }
   if(ben.type === 'semiannual'){
-    const months = bu.months || {};
-    return (months[yr+'-H1']?50:0) + (months[yr+'-H2']?50:0);
+    const half = ben.value/2;
+    return (months[yr+'-H1']?half:0) + (months[yr+'-H2']?half:0);
   }
   return 0;
 }
@@ -5280,7 +5444,7 @@ function renderBenCard(card){
   const bHTML=tmpl.benefits.map(ben=>{
     const bu=getBU(card.id,ben.id);
     const icon=BCAT_ICONS[ben.cat]||'⭐';
-    const typeTag=ben.type==='annual'?'<span class="badge bg-blue" style="font-size:10px">Annual</span>':ben.type==='monthly'?`<span class="badge bg-purple" style="font-size:10px">$${ben.monthlyValue}/mo</span>`:ben.type==='semiannual'?'<span class="badge bg-teal" style="font-size:10px">Semi-annual</span>':ben.type==='per_use'?'<span class="badge bg-amber" style="font-size:10px">Per use</span>':'<span class="badge bg-gray" style="font-size:10px">Ongoing</span>';
+    const typeTag=ben.type==='annual'?'<span class="badge bg-blue" style="font-size:10px">Annual</span>':ben.type==='monthly'?`<span class="badge bg-purple" style="font-size:10px">$${ben.monthlyValue}/mo</span>`:ben.type==='quarterly'?`<span class="badge bg-purple" style="font-size:10px">$${ben.monthlyValue||Math.round(ben.value/4)}/qtr</span>`:ben.type==='semiannual'?'<span class="badge bg-teal" style="font-size:10px">Semi-annual</span>':ben.type==='per_use'?'<span class="badge bg-amber" style="font-size:10px">Per use</span>':'<span class="badge bg-gray" style="font-size:10px">Ongoing</span>';
     const reqTag=ben.req?'<span class="badge bg-red" style="font-size:10px">⚡ Action needed</span>':'';
 
     if(ben.type==='ongoing') return`<div class="benefit-item" style="opacity:.8"><div style="display:flex;align-items:center;gap:10px"><div class="benefit-cat-icon" style="background:var(--bg3)">${icon}</div><div style="flex:1"><div style="font-size:13px;font-weight:600">${ben.name} ${typeTag}</div><div style="font-size:12px;color:var(--text2);margin-top:2px">${ben.desc}</div></div></div><div class="benefit-how">💡 ${ben.how}</div></div>`;
@@ -5301,10 +5465,18 @@ function renderBenCard(card){
     }
 
     if(ben.type==='semiannual'){
-      const months=bu.months||{};
+      const months=bu.months||{}; const half=ben.value/2;
       const h1=!!months[yr+'-H1']; const h2=!!months[yr+'-H2'];
       const curUsed=isH1?h1:h2;
-      return`<div class="benefit-item${curUsed?' used':''}"><div style="display:flex;align-items:center;gap:10px"><div class="benefit-cat-icon" style="background:var(--bg3)">${icon}</div><div style="flex:1"><div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">${ben.name}</span>${typeTag}${reqTag}<span style="font-size:12px;font-weight:700;color:var(--green);margin-left:auto">${fmt((h1?50:0)+(h2?50:0))} <span style="color:var(--text3);font-weight:400">of ${fmt(ben.value)}</span></span></div><div style="font-size:12px;color:var(--text2);margin-top:2px">${ben.desc}</div><div class="month-track"><button class="month-chip${h1?' used-chip':''}" style="${isH1?'border-color:var(--accent);font-weight:800':''}" onclick="toggleHalfBen('${card.id}','${ben.id}',${yr},true)">Jan–Jun $50</button><button class="month-chip${h2?' used-chip':''}" style="${!isH1?'border-color:var(--accent);font-weight:800':''}" onclick="toggleHalfBen('${card.id}','${ben.id}',${yr},false)">Jul–Dec $50</button></div></div></div><div class="benefit-how">💡 ${ben.how}</div></div>`;
+      return`<div class="benefit-item${curUsed?' used':''}"><div style="display:flex;align-items:center;gap:10px"><div class="benefit-cat-icon" style="background:var(--bg3)">${icon}</div><div style="flex:1"><div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">${ben.name}</span>${typeTag}${reqTag}<span style="font-size:12px;font-weight:700;color:var(--green);margin-left:auto">${fmt((h1?half:0)+(h2?half:0))} <span style="color:var(--text3);font-weight:400">of ${fmt(ben.value)}</span></span></div><div style="font-size:12px;color:var(--text2);margin-top:2px">${ben.desc}</div><div class="month-track"><button class="month-chip${h1?' used-chip':''}" style="${isH1?'border-color:var(--accent);font-weight:800':''}" onclick="toggleHalfBen('${card.id}','${ben.id}',${yr},true)">Jan–Jun ${fmt(half)}</button><button class="month-chip${h2?' used-chip':''}" style="${!isH1?'border-color:var(--accent);font-weight:800':''}" onclick="toggleHalfBen('${card.id}','${ben.id}',${yr},false)">Jul–Dec ${fmt(half)}</button></div></div></div><div class="benefit-how">💡 ${ben.how}</div></div>`;
+    }
+
+    if(ben.type==='quarterly'){
+      const months=bu.months||{}; const per=ben.monthlyValue||(ben.value/4);
+      const curQ=Math.floor(TODAY.getMonth()/3)+1;
+      const qs=[1,2,3,4];
+      const usedAmt=qs.filter(q=>months[yr+'-Q'+q]).length*per;
+      return`<div class="benefit-item${months[yr+'-Q'+curQ]?' used':''}"><div style="display:flex;align-items:center;gap:10px"><div class="benefit-cat-icon" style="background:var(--bg3)">${icon}</div><div style="flex:1"><div style="display:flex;align-items:center;gap:5px;flex-wrap:wrap"><span style="font-size:13px;font-weight:600">${ben.name}</span>${typeTag}${reqTag}<span style="font-size:12px;font-weight:700;color:var(--green);margin-left:auto">${fmt(usedAmt)} <span style="color:var(--text3);font-weight:400">of ${fmt(ben.value)}</span></span></div><div style="font-size:12px;color:var(--text2);margin-top:2px">${ben.desc}</div><div class="month-track">${qs.map(q=>`<button class="month-chip${months[yr+'-Q'+q]?' used-chip':''}" style="${q===curQ?'border-color:var(--accent);font-weight:800':''}" onclick="toggleQuarterBen('${card.id}','${ben.id}',${yr},${q})">Q${q} ${fmt(per)}</button>`).join('')}</div></div></div><div class="benefit-how">💡 ${ben.how}</div></div>`;
     }
     return '';
   }).join('');
@@ -5318,12 +5490,13 @@ function renderBenCard(card){
     <div class="benefit-header">
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
         ${issBadge(card.issuerId)}
-        <div><div style="font-size:17px;font-weight:700;color:#fff">${card.name} <span style="color:#8892B0;font-weight:400;font-size:13px">••${card.last4}</span></div><div style="font-size:12px;color:#8892B0;margin-top:2px">${tmpl.name} · ${fmt(tmpl.annualFee)} annual fee</div></div>
+        <div><div style="font-size:17px;font-weight:700;color:#fff">${card.name} <span style="color:#8892B0;font-weight:400;font-size:13px">••${card.last4}</span></div><div style="font-size:12px;color:#8892B0;margin-top:2px">${tmpl.name} · ${fmt(tmpl.annualFee)} annual fee · <a onclick="event.stopPropagation();showBenefitPicker([cards.find(x=>x.id==='${card.id}')])" style="color:var(--gold);cursor:pointer;text-decoration:underline">Change</a></div></div>
         <div style="margin-left:auto;text-align:right"><div style="font-size:26px;font-weight:800;color:${roiColor}">${afPct}%</div><div style="font-size:11px;color:#8892B0">AF offset</div></div>
       </div>
-      <div style="font-size:13px;color:#C4C9E0;margin-bottom:6px">${fmt(used)} of ${fmt(tmpl.annualFee)} annual fee covered${afPct>=100?' — <strong style="color:#4ADE80">fully covered! 🎉</strong>':''}</div>
+      <div style="font-size:13px;color:#C4C9E0;margin-bottom:6px">${fmt(used)} of ${fmt(tmpl.annualFee)} annual fee covered${afPct>=100?' — <strong style="color:#4ADE80">fully covered! 🎉</strong>':''}${used>tmpl.annualFee?` · <strong style="color:#4ADE80">net +${fmt(used-tmpl.annualFee)}</strong>`:''}</div>
       <div class="roi-meter"><div class="roi-fill" style="width:${afPct}%;background:${roiColor}"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:#8892B0;margin-top:3px"><span>$0</span><span>${afPct>=100?'Fee covered':'Need '+fmt(Math.max(0,tmpl.annualFee-used))+' more'}</span><span>${fmt(tmpl.annualFee)}</span></div>
+      ${(tmpl.annualFee>0&&!card.annualFeeMonth)?`<div style="margin-top:12px;padding:10px 12px;background:rgba(232,178,58,.14);border:1px solid rgba(232,178,58,.35);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12px;color:#F0EEE9;flex:1">Add the month your annual fee posts (when you opened the card) to unlock fee alerts and the calendar.</span><select onchange="setCardFeeMonth('${card.id}',this.value)" style="font-size:12px;padding:5px 8px"><option value="">Fee month…</option>${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}</select></div>`:''}
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
       <div class="sec-title" style="margin-bottom:0">Benefits tracker</div>
@@ -5350,6 +5523,19 @@ function toggleHalfBen(cid,bid,yr,h1){
   const k=bKey(cid,bid); const bu=benefitUsage[k]||{}; const months={...(bu.months||{})};
   const hk=yr+(h1?'-H1':'-H2'); months[hk]=!months[hk]; benefitUsage[k]={...bu,months,updatedAt:new Date().toISOString()};
   saveBenefitUsage(); renderBenefits();
+}
+function toggleQuarterBen(cid,bid,yr,q){
+  const k=bKey(cid,bid); const bu=benefitUsage[k]||{}; const months={...(bu.months||{})};
+  const qk=yr+'-Q'+q; months[qk]=!months[qk]; benefitUsage[k]={...bu,months,updatedAt:new Date().toISOString()};
+  saveBenefitUsage(); renderBenefits();
+}
+// Set the annual-fee month once per card (account-specific — no catalog can supply it)
+function setCardFeeMonth(cardId,month){
+  const card=cards.find(c=>c.id===cardId); if(!card) return;
+  card.annualFeeMonth=parseInt(month)||null;
+  save();
+  const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:card.id,user_id:_currentUser?.id,data:card}).then(()=>{});
+  renderBenefits();
 }
 function toggleMaximize(id){ const el=document.getElementById(id); if(el)el.classList.toggle('open'); }
 
