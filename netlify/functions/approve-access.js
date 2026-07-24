@@ -5,8 +5,10 @@
  * 3. Sends invite email via Supabase (user sets their own password via the link)
  * 4. Marks request as approved
  *
- * POST { email, secret } where secret = MIGRATION_SECRET
- * Authorization: Bearer <admin-jwt> (used to record who approved)
+ * POST { email }
+ * Authorization: Bearer <admin-jwt> — the caller's verified email MUST equal
+ * ADMIN_EMAIL. (Previously gated on a shared secret that was hardcoded in the
+ * frontend — a client-visible string that let anyone self-approve access.)
  */
 const { createClient } = require('@supabase/supabase-js');
 
@@ -24,13 +26,8 @@ exports.handler = async (event) => {
   let body = {};
   try { body = JSON.parse(event.body || '{}'); } catch (_) {}
 
-  const { email, secret } = body;
+  const { email } = body;
   if (!email) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'email required' }) };
-
-  const migrationSecret = process.env.MIGRATION_SECRET;
-  if (!migrationSecret || secret !== migrationSecret) {
-    return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Invalid secret' }) };
-  }
 
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Supabase not configured' }) };
@@ -38,14 +35,17 @@ exports.handler = async (event) => {
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
 
-  // Get the approving admin's user_id from JWT (optional — for audit trail)
+  // Server-side admin gate: the verified JWT's email must equal ADMIN_EMAIL.
   const authHeader = event.headers.authorization || event.headers.Authorization || '';
-  const jwt = authHeader.replace('Bearer ', '').trim();
-  let approverId = null;
-  if (jwt) {
-    const { data: { user } } = await supabase.auth.getUser(jwt);
-    approverId = user?.id || null;
+  const jwt = authHeader.replace(/^Bearer\s+/i, '').trim();
+  if (!jwt) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Authorization required' }) };
+  const { data: { user }, error: authErr } = await supabase.auth.getUser(jwt);
+  if (authErr || !user) return { statusCode: 401, headers: CORS, body: JSON.stringify({ error: 'Invalid session' }) };
+  const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  if (!adminEmail || (user.email || '').trim().toLowerCase() !== adminEmail) {
+    return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'Admin only' }) };
   }
+  const approverId = user.id;
 
   const normalizedEmail = email.trim().toLowerCase();
 

@@ -5509,7 +5509,7 @@ async function approveRequest(email,btn){
     const r=await fetch('/.netlify/functions/approve-access',{
       method:'POST',
       headers:getAuthHeaders(),
-      body:JSON.stringify({email,secret:'cardos-migrate-2024'}),
+      body:JSON.stringify({email}),
     });
     const data=await r.json();
     if(!r.ok){showToast('Error: '+(data.error||'Approval failed'));if(btn){btn.disabled=false;btn.textContent='Approve →';}return;}
