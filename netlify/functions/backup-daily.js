@@ -9,7 +9,17 @@ const TABLES = ['connections', 'cards', 'transactions', 'enrollments', 'offers',
 const BUCKET = 'backups';
 const RETENTION_DAYS = 30;
 
-exports.handler = async () => {
+exports.handler = async (event) => {
+  // Gate: Netlify scheduler payload (next_run) or MIGRATION_SECRET. Prevents an
+  // anonymous caller from triggering compute at will (data is safe either way —
+  // it only ever writes to the private bucket).
+  let scheduled = false;
+  try { scheduled = !!JSON.parse(event?.body || '{}').next_run; } catch {}
+  const secretOk = event?.queryStringParameters?.secret &&
+    process.env.MIGRATION_SECRET &&
+    event.queryStringParameters.secret === process.env.MIGRATION_SECRET;
+  if (!scheduled && !secretOk) return { statusCode: 401, body: 'scheduled function' };
+
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     console.error('[backup] Supabase env not configured');
     return { statusCode: 500, body: 'not configured' };
