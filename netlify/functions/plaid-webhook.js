@@ -34,8 +34,25 @@ async function verifyPlaidJwt(token, rawBody) {
       const resp = await plaid.webhookVerificationKeyGet({ key_id: header.kid });
       keyCache[header.kid] = resp.data.key;
     } catch (err) {
-      plaidErrorInfo('/webhook_verification_key/get', err);
-      return { ok: false, why: 'could not fetch verification key' };
+      // Sandbox-fired webhooks (test harness) sign with sandbox keys — try the
+      // sandbox environment before rejecting, when a sandbox secret exists.
+      if (process.env.PLAID_SECRET_SANDBOX) {
+        try {
+          const { Configuration, PlaidApi, PlaidEnvironments } = require('plaid');
+          const sbx = new PlaidApi(new Configuration({
+            basePath: PlaidEnvironments.sandbox,
+            baseOptions: { headers: { 'PLAID-CLIENT-ID': process.env.PLAID_CLIENT_ID, 'PLAID-SECRET': process.env.PLAID_SECRET_SANDBOX } },
+          }));
+          const resp2 = await sbx.webhookVerificationKeyGet({ key_id: header.kid });
+          keyCache[header.kid] = resp2.data.key;
+        } catch (err2) {
+          plaidErrorInfo('/webhook_verification_key/get', err2);
+          return { ok: false, why: 'could not fetch verification key' };
+        }
+      } else {
+        plaidErrorInfo('/webhook_verification_key/get', err);
+        return { ok: false, why: 'could not fetch verification key' };
+      }
     }
   }
   const jwk = keyCache[header.kid];
