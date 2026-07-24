@@ -292,3 +292,31 @@ URIs for new Items.
 | 4XaQ…B9P7 | Production | Chase | cj.hbinc | Phase 4 full lifecycle test | **removed** (verified gone: Item Debugger "no item found") |
 | (sandbox, ephemeral) | Sandbox | First Platypus | — | Phase 3 update-mode/webhook | auto-removed by test harness |
 | 9jqQDw7bKeCJ | Production | American Express | **dunderdiscounts** | 2nd-user mobile OAuth test (2026-07-24) | **ALIVE — billing ~$0.30/mo.** Decide keep vs remove. |
+
+## Production status (2026-07-24)
+
+- **Plaid is LIVE on `cardos-manager`.** Deployed HEAD (full Plaid build + Part C
+  dashboard + 19-card benefits). All plaid-* endpoints return 401 unauthenticated;
+  plaid-diag removed (404); get-config serves `plaidEnv: production`. Rollback
+  point tagged **`pre-plaid-prod`** (= f62010c, last pre-Plaid production commit);
+  Netlify deploy-list rollback also available.
+- **Monthly cost now:** $0.30 (1 live Item). **At 25 users × ~3 cards** = 75
+  Transactions subscriptions × $0.30 = **~$22.50/mo** (/accounts/get is free;
+  Balance endpoint unused).
+- **Live Items:** 1 — dunderdiscounts Amex Business Platinum. cj.hbinc's Phase-4
+  Chase was removed (verified gone).
+- **Test-site secrets:** `PLAID_SECRET_SANDBOX` removed (orphaned). Still present
+  for ongoing Part C dev/screenshots: `SUPABASE_SERVICE_KEY`, `MIGRATION_SECRET`,
+  `PLAID_SECRET` — **remove when Part C/D screenshot work closes.**
+- **Still needs CJ:** real Chase + Citi connect verification on production (needs
+  credentials). Amex already proven on the test site.
+
+## Benefits catalog (Section 1, 2026-07-24)
+
+19 templates, structured as a data catalog (name/issuer/isBusiness/annualFee/
+source + benefits[] with reset cadence). Hard business/consumer guard
+(`cardIsBusiness` + `templatesForCard`) — **verified on the real Amex Business
+Platinum: matches amex_biz_platinum ($895), NOT consumer Platinum** (guard blocked
+the name-only match). ROI proven: $895 fee, $1,409 trackable credits → net +$514.
+Fees are 2026 values with per-template `source`; **verify annually** — a wrong
+number is worse than a missing one. Not covered = honest empty + picker.
