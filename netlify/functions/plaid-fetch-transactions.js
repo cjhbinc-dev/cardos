@@ -171,17 +171,6 @@ exports.handler = async (event) => {
       }
     }
 
-    // TEST HOOK (admin-only, removed with plaid-diag in Phase 5 cleanup):
-    // simulates a crash AFTER the page's writes but BEFORE the cursor persists,
-    // to prove a failed run never advances the cursor.
-    if (body._failTest === true) {
-      const adminEmail = (process.env.ADMIN_EMAIL || '').trim().toLowerCase();
-      if (adminEmail && (user.email || '').trim().toLowerCase() === adminEmail) {
-        console.warn('[plaid-tx] _failTest — aborting before cursor persist');
-        return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'TEST: simulated failure before cursor persist', testHook: true }) };
-      }
-    }
-
     // ── Page fully written → NOW persist the cursor ─────────────────────────
     const { data: curSaved, error: curErr } = await supabase
       .from('enrollments').update({ transaction_cursor: data.next_cursor })
