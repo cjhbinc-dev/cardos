@@ -48,9 +48,10 @@ exports.handler = async (event) => {
 
     if (error) {
       console.error('[signup-check] allowed_emails lookup error:', error.message);
-      // If table doesn't exist yet, fall back to ALLOWED_EMAILS env var
+      // Fail CLOSED: if the allowlist can't be read, only an explicit ALLOWED_EMAILS
+      // env entry gets in. An empty list must never mean "everyone".
       const envList = (process.env.ALLOWED_EMAILS || '').split(',').map(e => e.trim().toLowerCase()).filter(Boolean);
-      allowed = envList.length === 0 || envList.includes(emailLower);
+      allowed = envList.includes(emailLower);
     } else {
       allowed = !!data;
     }
