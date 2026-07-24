@@ -8,6 +8,7 @@ exports.handler = async () => ({
   body: JSON.stringify({
     supabaseUrl: process.env.SUPABASE_URL || '',
     supabaseAnonKey: process.env.SUPABASE_ANON_KEY || '',
+    plaidEnv: process.env.PLAID_ENV || 'production',
     adminEmail: process.env.ADMIN_EMAIL || '',
     siteUrl: process.env.URL || 'https://cardos-manager.netlify.app',
   }),
