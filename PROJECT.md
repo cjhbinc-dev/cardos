@@ -287,6 +287,8 @@ URIs for new Items.
 
 ## Plaid Items ledger (every Item ever created, and its state)
 
-| item_id | Environment | Institution | Purpose | State |
-|---|---|---|---|---|
-| *(none yet)* | | | | |
+| item_id | Environment | Institution | Owner | Purpose | State |
+|---|---|---|---|---|---|
+| 4XaQ…B9P7 | Production | Chase | cj.hbinc | Phase 4 full lifecycle test | **removed** (verified gone: Item Debugger "no item found") |
+| (sandbox, ephemeral) | Sandbox | First Platypus | — | Phase 3 update-mode/webhook | auto-removed by test harness |
+| 9jqQDw7bKeCJ | Production | American Express | **dunderdiscounts** | 2nd-user mobile OAuth test (2026-07-24) | **ALIVE — billing ~$0.30/mo.** Decide keep vs remove. |
