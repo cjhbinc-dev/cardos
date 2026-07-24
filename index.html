@@ -6,6 +6,7 @@
 <title>CardOS — Credit Card Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
@@ -2648,7 +2649,10 @@ function renderConns(){
             ${linked.length?`<div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:8px">${linked.map(c=>`<span class="badge bg-blue">${esc(c.name)} ••${c.last4}</span>`).join('')}</div>`:'<div style="font-size:12px;color:var(--text3);margin-bottom:8px">No cards linked yet</div>'}
             <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
 
-              ${conn.syncError?`<button class="btn btn-xs" onclick="clearConnError('${conn.id}')">✕ Clear error</button>`:''}
+              ${conn.type==='plaid'?(conn.syncStatus==='disconnected'
+                ?`<button class="btn btn-xs btn-primary" onclick="openPlaidLink('${conn.id}')">Reconnect</button>`
+                :`<button class="btn btn-xs" onclick="syncPlaidConn('${conn.id}')">↻ Sync now</button>`):''}
+              ${conn.syncError&&conn.type!=='plaid'?`<button class="btn btn-xs" onclick="clearConnError('${conn.id}')">✕ Clear error</button>`:''}
               <span style="font-size:11px;color:var(--text3)">Last sync: ${conn.lastSync?fmtD(conn.lastSync):'never'}</span>
               <button class="btn btn-xs btn-danger" style="margin-left:auto" onclick="delConn('${conn.id}')">Remove</button>
             </div>
@@ -2770,6 +2774,13 @@ function openModal(type,id){
     over.innerHTML=`<div class="modal">
       <div class="modal-title">Add connection</div>
       <div style="display:flex;flex-direction:column;gap:12px">
+        <div class="plaid-card" style="cursor:pointer;border-color:var(--green2)" onclick="closeModal();openPlaidLink()">
+          <div style="display:flex;align-items:center;gap:12px">
+            <div style="width:36px;height:36px;border-radius:var(--r);background:var(--green-bg);display:flex;align-items:center;justify-content:center;font-size:16px">🏦</div>
+            <div><div style="font-size:14px;font-weight:600">Connect a bank</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Secure connection via Plaid · Balances and transactions sync automatically · Credentials never touch CardOS</div></div>
+            <div style="margin-left:auto;font-size:18px;color:var(--text3)">→</div>
+          </div>
+        </div>
         <div class="plaid-card" style="cursor:pointer" onclick="closeModal();openModal('conn-manual')">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:36px;height:36px;border-radius:var(--r);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:16px">✏️</div>
@@ -2938,6 +2949,152 @@ async function delConn(id){
     showToast('⚠ Delete failed on the server — restoring. Try again.');
     syncFromSupabase();
   }
+}
+
+// ── PLAID LINK ──────────────────────────────────────────────────────────────
+function friendlyPlaidError(code){
+  const map={
+    ITEM_LOGIN_REQUIRED:'Your bank needs you to sign in again. Use Reconnect on the connection.',
+    INSTITUTION_DOWN:"Your bank's connection service is down right now. This is on the bank's side — try again in a few hours.",
+    INSTITUTION_NOT_RESPONDING:"Your bank isn't responding right now. This usually clears up on its own — try again later.",
+    INSTITUTION_NOT_AVAILABLE:"This bank isn't available to connect right now.",
+    PRODUCTS_NOT_SUPPORTED:"This account type isn't supported for automatic sync.",
+    INVALID_FIELD:'Something went wrong preparing the connection. Try again — if it keeps happening, send feedback.',
+    UNAUTHORIZED_INSTITUTION:"This bank isn't available yet — we're working on it.",
+    RATE_LIMIT_EXCEEDED:'Too many requests at once. Wait a minute and try again.',
+    USER_SETUP_REQUIRED:"Your bank needs you to finish setup on its own website before it can connect.",
+    NO_ACCOUNTS:'No supported credit card accounts were found at this bank.',
+  };
+  return map[code]||('Something went wrong'+(code?' ('+code+')':'')+'. Try again — if it keeps happening, use Send Feedback.');
+}
+
+// Amex is pending OAuth registration — show intent, not a raw error
+function plaidInstitutionNotice(name,code){
+  const n=(name||'').toLowerCase();
+  if(n.includes('american express')||n.includes('amex'))return "American Express isn't available yet — we're working on it.";
+  return friendlyPlaidError(code);
+}
+
+// Link conversion telemetry — last 100 events, local only
+let _linkEvents=JSON.parse(localStorage.getItem('cardos_link_events')||'[]');
+function logLinkEvent(eventName,metadata){
+  const entry={t:new Date().toISOString(),event:eventName,view:metadata?.view_name||null,inst:metadata?.institution_name||metadata?.institution?.name||null,error:metadata?.error_code||null,status:metadata?.exit_status||metadata?.status||null,session:metadata?.link_session_id||null};
+  _linkEvents.push(entry);
+  if(_linkEvents.length>100)_linkEvents=_linkEvents.slice(-100);
+  localStorage.setItem('cardos_link_events',JSON.stringify(_linkEvents));
+  console.log('[link-event]',entry.event,entry.view||'',entry.error||'');
+}
+
+async function openPlaidLink(reconnectConnId){
+  if(!window.Plaid){showToast('Plaid script not loaded — check your connection and refresh the page.');return;}
+  showToast(reconnectConnId?'Preparing reconnect…':'Preparing bank connection…');
+  let tok;
+  try{
+    const r=await fetch('/.netlify/functions/plaid-create-link-token',{method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify(reconnectConnId?{connectionId:reconnectConnId}:{})});
+    tok=await r.json().catch(()=>({}));
+    if(!r.ok||!tok.link_token){showToast('⚠ '+(tok?.plaid?.error_code?friendlyPlaidError(tok.plaid.error_code):(tok.error||'Could not start the bank connection.')));return;}
+  }catch(e){showToast('⚠ Could not reach the server. Check your connection.');return;}
+  // Persisted so an OAuth redirect (webview flow) can resume this Link session
+  sessionStorage.setItem('cardos_plaid_link_token',tok.link_token);
+  if(reconnectConnId)sessionStorage.setItem('cardos_plaid_reconnect',reconnectConnId);
+  else sessionStorage.removeItem('cardos_plaid_reconnect');
+  _openPlaidWithToken(tok.link_token,reconnectConnId||null,null);
+}
+
+function _openPlaidWithToken(linkToken,reconnectConnId,receivedRedirectUri){
+  const handler=Plaid.create({
+    token:linkToken,
+    ...(receivedRedirectUri?{receivedRedirectUri}:{}),
+    onSuccess:async(publicToken,metadata)=>{
+      logLinkEvent('SUCCESS',metadata);
+      sessionStorage.removeItem('cardos_plaid_link_token');
+      if(reconnectConnId){
+        // Update mode repairs the existing access token — no exchange call.
+        showToast('✓ Reconnected. Syncing…');
+        const conn=connections.find(c=>c.id===reconnectConnId);
+        if(conn){conn.syncStatus='pending';conn.syncError=null;save();renderConns();}
+        await syncPlaidConn(reconnectConnId);
+        return;
+      }
+      showToast('Connecting your accounts…');
+      try{
+        const r=await fetch('/.netlify/functions/plaid-exchange-token',{method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({publicToken,institution:{institution_id:metadata?.institution?.institution_id,name:metadata?.institution?.name}})});
+        const j=await r.json().catch(()=>({}));
+        if(!r.ok){showToast('⚠ '+(j?.plaid?.error_code?friendlyPlaidError(j.plaid.error_code):(j.error||'Could not finish connecting.')));return;}
+        if(j.duplicate){showToast('ℹ '+(j.message||'This bank is already connected.'));return;}
+        if(!j.cardsSaved)showToast('Connected, but no credit cards were found at '+(j.institutionName||'this bank')+'.');
+        else showToast('✓ '+(j.institutionName||'Bank')+' connected — '+j.cardsSaved+' card'+(j.cardsSaved>1?'s':'')+' added. Importing transactions…');
+        await syncFromSupabase();
+        renderConns();renderDashboard();renderCards();
+        if(j.cardsSaved&&j.connectionId)fetchPlaidTransactions(j.connectionId);
+      }catch(e){showToast('⚠ Could not finish connecting — server unreachable.');}
+    },
+    onExit:(err,metadata)=>{
+      logLinkEvent('EXIT',{...(metadata||{}),error_code:err?.error_code});
+      sessionStorage.removeItem('cardos_plaid_link_token');
+      if(err)showToast('⚠ '+plaidInstitutionNotice(metadata?.institution?.name,err.error_code));
+    },
+    onEvent:(eventName,metadata)=>logLinkEvent(eventName,metadata),
+  });
+  handler.open();
+}
+
+// Resume Link after an OAuth redirect (?oauth_state_id=…) — webview flows
+(function(){
+  try{
+    if(new URLSearchParams(window.location.search).has('oauth_state_id')){
+      const lt=sessionStorage.getItem('cardos_plaid_link_token');
+      const rc=sessionStorage.getItem('cardos_plaid_reconnect')||null;
+      const uri=window.location.href;
+      if(lt)window.addEventListener('load',()=>_openPlaidWithToken(lt,rc,uri));
+      else console.warn('[plaid] oauth_state_id present but no stored link token — session lost');
+      window.history.replaceState({},'',window.location.pathname);
+    }
+  }catch(e){console.warn('[plaid] oauth resume failed:',e.message);}
+})();
+
+async function syncPlaidConn(connId){
+  const conn=connections.find(c=>c.id===connId);
+  showToast('Syncing '+((conn&&conn.institutionName)||'bank')+'…');
+  try{
+    const r=await fetch('/.netlify/functions/plaid-sync',{method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({connectionId:connId})});
+    const j=await r.json().catch(()=>({}));
+    if(j.disconnected){await syncFromSupabase();renderConns();renderDashboard();showToast('⚠ '+friendlyPlaidError('ITEM_LOGIN_REQUIRED'));return;}
+    if(!r.ok){showToast('⚠ '+(j?.plaid?.error_code?friendlyPlaidError(j.plaid.error_code):(j.error||'Sync failed.')));return;}
+    showToast('✓ Balances updated ('+((j.updated&&j.updated.length)||0)+' card'+(((j.updated&&j.updated.length)||0)!==1?'s':'')+'). Checking transactions…');
+    await syncFromSupabase();renderConns();renderDashboard();renderCards();
+    await fetchPlaidTransactions(connId);
+  }catch(e){showToast('⚠ Sync failed — server unreachable.');}
+}
+
+// Transaction import with continuation. The backend time-boxes each call and
+// returns hasMore; this loop keeps going until done. The cursor lives
+// server-side and only advances after successful writes, so closing the tab
+// mid-import is safe — the next sync resumes exactly where it stopped.
+let _txImportBusy=false;
+async function fetchPlaidTransactions(connId){
+  if(_txImportBusy)return;
+  _txImportBusy=true;
+  let total=0,rounds=0;
+  try{
+    for(;;){
+      rounds++;
+      const r=await fetch('/.netlify/functions/plaid-fetch-transactions',{method:'POST',headers:{...getAuthHeaders(),'Content-Type':'application/json'},body:JSON.stringify({connectionId:connId})});
+      const j=await r.json().catch(()=>({}));
+      if(j.disconnected){showToast('⚠ '+friendlyPlaidError('ITEM_LOGIN_REQUIRED'));break;}
+      if(!r.ok){if(rounds===1)showToast('⚠ Transaction import hit a snag — it will resume on the next sync.');console.warn('[plaid-tx] round failed:',j.error||r.status);break;}
+      total+=(j.added||0)+(j.modified||0);
+      if(!j.hasMore){
+        await loadTransactionsFromSupabase();renderTransactions();renderDashboard();
+        showToast(total?('✓ Transactions imported — '+total+' record'+(total!==1?'s':'')):'✓ Transactions up to date');
+        break;
+      }
+      showToast('Importing transaction history… ('+total+' so far — first import of 2 years can take a few minutes)');
+      if(rounds>=40){showToast('Import is taking a while — it will finish on the next sync. Your data so far is saved.');break;}
+      if(j.initialPullPending)await new Promise(res=>setTimeout(res,2000));
+    }
+  }catch(e){console.warn('[plaid-tx] import error:',e.message);showToast('⚠ Transaction import interrupted — it will resume on the next sync.');}
+  finally{_txImportBusy=false;}
 }
 
 async function dedupConnections(){
