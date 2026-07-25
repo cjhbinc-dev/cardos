@@ -375,7 +375,11 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 .sidebar.expanded .nav-divider{width:100%;margin:6px 0}
 .sidebar.expanded .tooltip{position:static;opacity:1;background:transparent;border:none;color:var(--side-text);font-size:13px;font-weight:600;padding:0;box-shadow:none;pointer-events:none;white-space:nowrap;transition:none}
 .sidebar.expanded .nav-btn.active .tooltip,.sidebar.expanded .nav-btn:hover .tooltip{color:inherit}
-.hamburger{display:none;flex-direction:column;gap:4px;cursor:pointer;padding:8px;background:transparent;border:none;flex-shrink:0;color:var(--text2)}
+/* Menu toggle is visible at ALL widths — on desktop it expands/collapses the
+   sidebar, on mobile it opens the drawer. (Previously hidden on desktop, which
+   trapped a collapsed sidebar with no way to expand it back.) */
+.hamburger{display:flex;flex-direction:column;gap:4px;cursor:pointer;padding:8px;background:transparent;border:none;flex-shrink:0;color:var(--text2);border-radius:8px}
+.hamburger:hover{background:var(--bg3);color:var(--ink)}
 .hamburger span{display:block;width:18px;height:2px;background:currentColor;border-radius:2px}
 
 /* ── Global search overlay ── */
@@ -5614,7 +5618,10 @@ updateDarkBtn();
 // ═══════════════════════════════════════════════════════
 // SIDEBAR TOGGLE (desktop collapse + mobile drawer)
 // ═══════════════════════════════════════════════════════
-let _sideExpanded=localStorage.getItem('cardos_sidebar')!=='0'; // default: expanded
+// Default: expanded. Uses a new key value ('collapsed'), so any old '0'/'1'
+// value from the previous toggle (which had no visible control) is treated as
+// expanded — nobody stays stuck on the narrow rail.
+let _sideExpanded=localStorage.getItem('cardos_sidebar')!=='collapsed';
 function applySidebarState(){
   const sb=document.querySelector('.sidebar');
   const ly=document.getElementById('main-layout');
@@ -5630,7 +5637,7 @@ function toggleSidebar(){
   const isMobile=window.innerWidth<=768;
   if(isMobile){openMobileSidebar();return;}
   _sideExpanded=!_sideExpanded;
-  localStorage.setItem('cardos_sidebar',_sideExpanded?'1':'0');
+  localStorage.setItem('cardos_sidebar',_sideExpanded?'expanded':'collapsed');
   applySidebarState();
 }
 applySidebarState();
