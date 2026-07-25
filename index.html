@@ -413,6 +413,20 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
   .search-kbd{display:none!important}
 }
 
+/* ── Desktop: ALWAYS the full labeled sidebar (CSS-driven, no JS dependency,
+   so it can't get stuck as a 64px icon rail on load). ── */
+@media(min-width:769px){
+  .layout{grid-template-columns:210px 1fr!important}
+  .sidebar{align-items:flex-start!important;padding:16px 10px 12px!important}
+  .sidebar .nav-btn{width:100%!important;justify-content:flex-start!important;padding:10px 12px!important;gap:10px!important;height:auto!important;border-radius:var(--r)!important}
+  .sidebar .nav-btn.active{border-left:2px solid var(--gold)!important;border-radius:0 var(--r) var(--r) 0!important;background:var(--side2)!important}
+  .sidebar .tooltip{position:static!important;opacity:1!important;background:transparent!important;border:none!important;color:inherit!important;font-size:13px!important;font-weight:600!important;padding:0!important;box-shadow:none!important;pointer-events:none!important;white-space:nowrap!important}
+  .sidebar .nav-group-label{opacity:.7!important;height:auto!important;padding:14px 12px 5px!important}
+  .sidebar .nav-divider{width:100%!important;margin:6px 0!important}
+  .sidebar .logo{font-size:0!important;width:auto!important;height:auto!important;background:none!important;border:none!important;margin:0 0 20px 4px!important}
+  .sidebar .logo::after{content:'CardOS'!important;font-size:19px!important;font-weight:800!important;color:var(--cream)!important}
+}
+
 /* ── Ledger & Tags ── */
 .tag-chip{display:inline-flex;align-items:center;gap:3px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;cursor:pointer;transition:opacity .12s;white-space:nowrap}
 .tag-chip:hover{opacity:.75}
