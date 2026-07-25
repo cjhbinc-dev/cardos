@@ -375,10 +375,9 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 .sidebar.expanded .nav-divider{width:100%;margin:6px 0}
 .sidebar.expanded .tooltip{position:static;opacity:1;background:transparent;border:none;color:var(--side-text);font-size:13px;font-weight:600;padding:0;box-shadow:none;pointer-events:none;white-space:nowrap;transition:none}
 .sidebar.expanded .nav-btn.active .tooltip,.sidebar.expanded .nav-btn:hover .tooltip{color:inherit}
-/* Menu toggle is visible at ALL widths — on desktop it expands/collapses the
-   sidebar, on mobile it opens the drawer. (Previously hidden on desktop, which
-   trapped a collapsed sidebar with no way to expand it back.) */
-.hamburger{display:flex;flex-direction:column;gap:4px;cursor:pointer;padding:8px;background:transparent;border:none;flex-shrink:0;color:var(--text2);border-radius:8px}
+/* Menu toggle: only on mobile (opens the drawer). Desktop is always the full
+   labeled sidebar, so no toggle is needed there. */
+.hamburger{display:none;flex-direction:column;gap:4px;cursor:pointer;padding:8px;background:transparent;border:none;flex-shrink:0;color:var(--text2);border-radius:8px}
 .hamburger:hover{background:var(--bg3);color:var(--ink)}
 .hamburger span{display:block;width:18px;height:2px;background:currentColor;border-radius:2px}
 
@@ -5627,18 +5626,19 @@ function applySidebarState(){
   const ly=document.getElementById('main-layout');
   const isMobile=window.innerWidth<=768;
   if(isMobile){
-    // On mobile, hamburger opens/closes the drawer — not the expand state
+    // Mobile: the sidebar is an off-canvas drawer (hamburger). Never the rail.
+    sb.classList.remove('expanded');
     return;
   }
-  if(_sideExpanded){sb.classList.add('expanded');ly?.classList.add('sidebar-expanded');}
-  else{sb.classList.remove('expanded');ly?.classList.remove('sidebar-expanded');}
+  // Desktop: ALWAYS the full labeled sidebar. No 64px icon-rail collapse — it
+  // was cramped and, when the toggle was hidden, un-expandable.
+  sb.classList.add('expanded');
+  ly?.classList.add('sidebar-expanded');
 }
 function toggleSidebar(){
-  const isMobile=window.innerWidth<=768;
-  if(isMobile){openMobileSidebar();return;}
-  _sideExpanded=!_sideExpanded;
-  localStorage.setItem('cardos_sidebar',_sideExpanded?'expanded':'collapsed');
-  applySidebarState();
+  // Only meaningful on mobile (opens the drawer). On desktop the sidebar is
+  // always expanded, so there is nothing to toggle.
+  if(window.innerWidth<=768) openMobileSidebar();
 }
 applySidebarState();
 window.addEventListener('resize',()=>{
