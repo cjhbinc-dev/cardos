@@ -844,19 +844,80 @@ body{background:var(--bg)}
 .attn-msg{font-size:13.5px;color:var(--text);line-height:1.6}
 .attn-msg strong{color:var(--ink);font-weight:700}
 
-/* Card tiles — three stacked bands */
-.tile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px}
-.tile{background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);overflow:hidden;cursor:pointer;box-shadow:var(--shadow-card);transition:transform .15s,box-shadow .15s}
-.tile:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
-.tile-face{padding:16px 18px 18px}
-.tile-face-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
-.tile-issuer{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase}
-.tile-last4{font-size:12px;font-weight:600;font-family:ui-monospace,'SF Mono',Menlo,monospace}
-.tile-product{font-size:14px;font-weight:600;margin-bottom:12px;line-height:1.3;min-height:18px}
-.tile-owed{font-size:26px;font-weight:800;letter-spacing:-.5px;line-height:1}
-.tile-bar{height:5px;background:rgba(0,0,0,.14)}
-.tile-bar-fill{height:100%;transition:width .5s cubic-bezier(.4,0,.2,1)}
-.tile-foot{display:flex;justify-content:space-between;align-items:center;padding:11px 16px;background:var(--bg2);font-size:12.5px}
+/* ══ Glass background — a soft aurora so frosted panels have something to blur ══ */
+body::before{content:'';position:fixed;inset:0;z-index:-2;background:
+  radial-gradient(1100px 640px at 82% -8%, rgba(232,178,58,.16), transparent 60%),
+  radial-gradient(1000px 720px at -6% 108%, rgba(22,35,63,.14), transparent 58%),
+  radial-gradient(760px 520px at 60% 120%, rgba(63,169,127,.10), transparent 60%),
+  var(--bg);}
+[data-theme="dark"] body::before{background:
+  radial-gradient(1100px 640px at 82% -8%, rgba(232,178,58,.14), transparent 60%),
+  radial-gradient(1000px 720px at -6% 108%, rgba(80,110,190,.16), transparent 58%),
+  var(--bg);}
+
+/* ── Glass surfaces ── */
+.glass{background:rgba(251,250,247,.62);backdrop-filter:blur(18px) saturate(1.35);-webkit-backdrop-filter:blur(18px) saturate(1.35);border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 34px rgba(22,35,63,.10),inset 0 1px 0 rgba(255,255,255,.6)}
+[data-theme="dark"] .glass{background:rgba(24,27,39,.55);border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 34px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.05)}
+.dash-panel{background:rgba(251,250,247,.6)!important;backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 10px 34px rgba(22,35,63,.09),inset 0 1px 0 rgba(255,255,255,.6)!important}
+.topbar{background:rgba(251,250,247,.72)!important;backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-bottom:1px solid rgba(255,255,255,.5)!important}
+.attn-card{background:rgba(251,250,247,.66)!important;backdrop-filter:blur(14px) saturate(1.25);-webkit-backdrop-filter:blur(14px) saturate(1.25)}
+.overlay .modal{background:rgba(251,250,247,.82)!important;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.6)}
+
+/* ══ Card grid ══ */
+.tile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px}
+
+/* Realistic credit card */
+.rcard-wrap{cursor:pointer}
+.rcard{position:relative;aspect-ratio:1.586/1;border-radius:16px;perspective:1200px}
+.rcard-flip{position:absolute;inset:0;transform-style:preserve-3d;transition:transform .55s cubic-bezier(.4,0,.2,1),box-shadow .3s;border-radius:16px;
+  transform:rotateX(var(--rx,0deg)) rotateY(var(--ry,0deg));
+  box-shadow:0 18px 40px -12px rgba(22,35,63,.45),0 6px 14px rgba(22,35,63,.2)}
+.rcard-wrap:hover .rcard-flip{box-shadow:0 30px 60px -16px rgba(22,35,63,.55),0 10px 22px rgba(22,35,63,.28)}
+.rcard-wrap.flipped .rcard-flip{transform:rotateY(180deg)}
+.rcard-face{position:absolute;inset:0;border-radius:16px;overflow:hidden;backface-visibility:hidden;-webkit-backface-visibility:hidden;
+  background:linear-gradient(135deg,var(--b1) 0%,var(--b2) 100%);color:var(--ctext);
+  padding:18px 20px;display:flex;flex-direction:column}
+.rcard-back{transform:rotateY(180deg)}
+/* metallic sheen + subtle noise */
+.rcard-face::before{content:'';position:absolute;inset:0;background:
+  linear-gradient(105deg,transparent 30%,rgba(255,255,255,.22) 45%,rgba(255,255,255,.05) 55%,transparent 70%);
+  transform:translateX(var(--sheen,-30%));transition:transform .5s ease;pointer-events:none}
+.rcard-wrap:hover .rcard-face::before{--sheen:30%}
+.rcard-face::after{content:'';position:absolute;inset:0;background:radial-gradient(120% 80% at 15% 0%,rgba(255,255,255,.18),transparent 55%);pointer-events:none}
+.rc-top{display:flex;justify-content:space-between;align-items:flex-start;position:relative;z-index:1}
+.rc-issuer{font-size:12.5px;font-weight:800;letter-spacing:.4px;text-shadow:0 1px 2px rgba(0,0,0,.22)}
+.rc-net{height:26px;display:flex;align-items:center}
+.rc-chip{width:42px;height:32px;border-radius:6px;margin:14px 0 0;position:relative;z-index:1;
+  background:linear-gradient(135deg,#F4D68A,#C9A24B 45%,#E7C878 60%,#B8912F);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.2)}
+.rc-chip::before{content:'';position:absolute;inset:5px;border-radius:3px;
+  background:
+   linear-gradient(90deg,transparent 46%,rgba(0,0,0,.22) 47% 53%,transparent 54%),
+   linear-gradient(0deg,transparent 30%,rgba(0,0,0,.18) 31% 36%,transparent 37%,transparent 63%,rgba(0,0,0,.18) 64% 69%,transparent 70%)}
+.rc-wifi{position:absolute;left:70px;top:56px;z-index:1;opacity:.9}
+.rc-number{font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:clamp(15px,4.6vw,19px);font-weight:600;letter-spacing:2.5px;margin-top:auto;position:relative;z-index:1;text-shadow:0 1px 1px rgba(0,0,0,.28)}
+.rc-bottom{display:flex;justify-content:space-between;align-items:flex-end;margin-top:10px;position:relative;z-index:1;gap:10px}
+.rc-name{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.92;line-height:1.25;max-width:62%}
+.rc-thru{font-size:8.5px;letter-spacing:.4px;opacity:.6;text-transform:uppercase}
+.rc-bal{text-align:right}
+.rc-bal-lbl{font-size:8.5px;letter-spacing:.6px;text-transform:uppercase;opacity:.62}
+.rc-bal-val{font-size:19px;font-weight:800;letter-spacing:-.3px;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px rgba(0,0,0,.22)}
+/* back face */
+.rcard-back{padding:16px 18px}
+.rc-back-hd{font-size:11px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;opacity:.8;position:relative;z-index:1}
+.rc-back-roi{font-size:22px;font-weight:800;letter-spacing:-.4px;margin:4px 0 10px;position:relative;z-index:1;font-variant-numeric:tabular-nums}
+.rc-back-list{display:flex;flex-direction:column;gap:5px;position:relative;z-index:1;overflow:auto}
+.rc-back-row{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;opacity:.92}
+.rc-back-cta{margin-top:auto;font-size:11px;font-weight:700;opacity:.85;position:relative;z-index:1}
+.rc-magstripe{position:absolute;left:0;right:0;top:16px;height:34px;background:rgba(0,0,0,.55)}
+/* utilization strip under the card */
+.rcard-util{display:flex;flex-direction:column;gap:5px;margin-top:12px;padding:0 3px}
+.rcard-util-bar{height:6px;border-radius:99px;background:rgba(22,35,63,.12);overflow:hidden}
+[data-theme="dark"] .rcard-util-bar{background:rgba(255,255,255,.12)}
+.rcard-util-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.rcard-util-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
+.rc-flip-hint{position:absolute;right:12px;bottom:10px;z-index:2;font-size:9px;letter-spacing:.4px;text-transform:uppercase;opacity:.5;display:flex;align-items:center;gap:3px}
+@media(prefers-reduced-motion:reduce){.rcard-flip{transition:none}.rcard-face::before{display:none}}
 
 /* Empty hero — the one thing, when there are no cards */
 .empty-hero{text-align:center;padding:56px 28px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rxl);box-shadow:var(--shadow-sm)}
@@ -2196,31 +2257,108 @@ function isLightColor(hex){
   const r=parseInt(h.slice(0,2),16),g=parseInt(h.slice(2,4),16),b=parseInt(h.slice(4,6),16);
   return (0.299*r+0.587*g+0.114*b)>150;
 }
+function shadeHex(hex,amt){ // amt<0 darken, >0 lighten
+  let h=(hex||'#16233F').replace('#','');if(h.length===3)h=h.split('').map(x=>x+x).join('');
+  const n=[0,2,4].map(i=>{let v=parseInt(h.slice(i,i+2),16)+amt;return Math.max(0,Math.min(255,v));});
+  return '#'+n.map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+// Likely network per issuer (illustrative — Plaid doesn't return the network)
+const ISSUER_NET={amex:'amex',disc:'discover',chase:'visa',boa:'visa',wells:'visa',usb:'visa',citi:'mastercard',capone:'mastercard',barc:'mastercard'};
+function networkMark(issuerId,light){
+  const net=ISSUER_NET[issuerId]||'generic';
+  const ink=light?'#16233F':'#F5F4F0';
+  if(net==='visa')return `<span style="font-style:italic;font-weight:800;font-size:16px;letter-spacing:.5px;color:${ink};text-shadow:0 1px 2px rgba(0,0,0,.25)">VISA</span>`;
+  if(net==='amex')return `<span style="font-weight:800;font-size:11px;letter-spacing:1px;color:${ink};border:1.5px solid ${light?'rgba(22,35,63,.5)':'rgba(255,255,255,.6)'};padding:3px 5px;border-radius:3px">AMEX</span>`;
+  if(net==='discover')return `<span style="font-weight:800;font-size:10px;letter-spacing:.3px;color:${ink}">DISC<span style="color:#F60;">●</span>VER</span>`;
+  if(net==='mastercard')return `<span style="display:inline-flex;align-items:center"><span style="width:20px;height:20px;border-radius:50%;background:#EB001B;opacity:.92"></span><span style="width:20px;height:20px;border-radius:50%;background:#F79E1B;opacity:.92;margin-left:-9px;mix-blend-mode:screen"></span></span>`;
+  return `<span style="width:22px;height:16px;border-radius:3px;background:rgba(255,255,255,.35);display:inline-block"></span>`;
+}
+const _wifiSVG=`<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M6 4a8 8 0 010 12M9.5 6.5a4.5 4.5 0 010 7M13 9a1 1 0 010 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".85"/></svg>`;
 
-// Three-band tile: face (identity) · utilization bar (health) · footer
+function flipCard(ev,id){ ev.stopPropagation(); const w=document.getElementById('rc-'+id); if(w)w.classList.toggle('flipped'); }
+
+// Delegated 3D hover-tilt for [data-tilt] cards (survives re-renders). The card
+// leans toward the cursor for a tactile, physical feel. Off under reduced-motion.
+(function(){
+  const reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  if(reduce)return;
+  let raf=null;
+  document.addEventListener('mousemove',e=>{
+    const wrap=e.target.closest&&e.target.closest('[data-tilt]');
+    if(!wrap||wrap.classList.contains('flipped'))return;
+    const flip=wrap.querySelector('.rcard-flip'); if(!flip)return;
+    const r=wrap.getBoundingClientRect();
+    const px=(e.clientX-r.left)/r.width-.5, py=(e.clientY-r.top)/r.height-.5;
+    if(raf)cancelAnimationFrame(raf);
+    raf=requestAnimationFrame(()=>{ flip.style.setProperty('--ry',(px*10).toFixed(2)+'deg'); flip.style.setProperty('--rx',(-py*10).toFixed(2)+'deg'); });
+  },{passive:true});
+  document.addEventListener('mouseout',e=>{
+    const wrap=e.target.closest&&e.target.closest('[data-tilt]');
+    if(!wrap)return;
+    const flip=wrap.querySelector('.rcard-flip'); if(flip){flip.style.setProperty('--ry','0deg');flip.style.setProperty('--rx','0deg');}
+  },{passive:true});
+})();
+
+// Realistic credit-card tile: brand-gradient face, chip, contactless, embossed
+// number, network mark, glossy sheen + hover tilt, and a flip to its benefits.
 function dashCardTile(c){
-  const v=cv(c);
-  const util=v.util||0;
-  const face=cardFaceColor(c);
-  const light=isLightColor(face);
-  const faceTxt=light?'#16233F':'#F0EEE9';
-  const faceSub=light?'rgba(22,35,63,.72)':'rgba(240,238,233,.82)';
+  const v=cv(c); const util=v.util||0;
+  const face=cardFaceColor(c); const light=isLightColor(face);
+  const b1=shadeHex(face,light?14:26), b2=shadeHex(face,light?-30:-46);
+  const ctext=light?'#16233F':'#F3F1EC';
   const iss=getIss(c.issuerId);
   const avail=Math.max(0,c.limit-c.balance);
   const dim=c.status!=='active'?'opacity:.62;':'';
-  return`<div class="tile" style="${dim}" onclick="showDetail('${c.id}')" tabindex="0" onkeydown="if(event.key==='Enter')showDetail('${c.id}')">
-    <div class="tile-face" style="background:${face};color:${faceTxt}">
-      <div class="tile-face-top">
-        <span class="tile-issuer" style="color:${faceSub}">${esc(iss.name)}</span>
-        <span class="tile-last4 tnum" style="color:${faceSub}">••${esc(c.last4||'')}</span>
+  const num=`•••• •••• •••• ${esc(c.last4||'••••')}`;
+  const [tmplKey,tmpl]=matchTemplate(c);
+  // back face content: ROI if a template matched, else utilization detail
+  let back;
+  if(tmpl){
+    const {used,total}=computeAFOffset(c.id,tmpl);
+    const pctOff=tmpl.annualFee?Math.min(100,Math.round(used/tmpl.annualFee*100)):0;
+    const top=tmpl.benefits.filter(b=>b.value>0).slice(0,4).map(b=>`<div class="rc-back-row"><span>${esc(b.name.replace(/^\$\d+\s*/,''))}</span><span class="tnum">${fmt(b.value)}</span></div>`).join('');
+    back=`<div class="rc-back-hd">${esc(tmpl.name)} · benefits</div>
+      <div class="rc-back-roi">${pctOff}% <span style="font-size:12px;opacity:.7">of ${fmt(tmpl.annualFee)} fee offset</span></div>
+      <div class="rc-back-list">${top}</div>
+      <div class="rc-back-cta">Tap to flip back →</div>`;
+  } else {
+    back=`<div class="rc-magstripe"></div>
+      <div class="rc-back-hd" style="margin-top:44px">Utilization</div>
+      <div class="rc-back-roi" style="color:${light?utilTxtColor(util):'inherit'}">${pct(util)} <span style="font-size:12px;opacity:.7">used</span></div>
+      <div class="rc-back-list">
+        <div class="rc-back-row"><span>Balance</span><span class="tnum">${fmt(c.balance)}</span></div>
+        <div class="rc-back-row"><span>Limit</span><span class="tnum">${fmt(c.limit)}</span></div>
+        <div class="rc-back-row"><span>Available</span><span class="tnum">${fmt(avail)}</span></div>
       </div>
-      <div class="tile-product" style="color:${faceTxt}">${esc(c.name)}</div>
-      <div class="tile-owed tnum" style="color:${faceTxt}">${fmt(c.balance)}</div>
+      <div class="rc-back-cta">Tap to flip back →</div>`;
+  }
+  return`<div class="rcard-wrap" id="rc-${c.id}" style="${dim}" data-tilt tabindex="0"
+      onclick="flipCard(event,'${c.id}')" onkeydown="if(event.key==='Enter')flipCard(event,'${c.id}')">
+    <div class="rcard">
+      <div class="rcard-flip">
+        <div class="rcard-face rcard-front" style="--b1:${b1};--b2:${b2};--ctext:${ctext}">
+          <div class="rc-top">
+            <span class="rc-issuer">${esc(iss.name)}</span>
+            <span class="rc-net">${networkMark(c.issuerId,light)}</span>
+          </div>
+          <div class="rc-chip"></div>
+          <div class="rc-wifi" style="color:${ctext}">${_wifiSVG}</div>
+          <div class="rc-number">${num}</div>
+          <div class="rc-bottom">
+            <div><div class="rc-name">${esc(c.name)}</div><div class="rc-thru">${c.status!=='active'?(c.status==='sockdrawer'?'Sock drawer':'Closed'):'Member'}</div></div>
+            <div class="rc-bal"><div class="rc-bal-lbl">Balance</div><div class="rc-bal-val">${fmt(c.balance)}</div></div>
+          </div>
+          <div class="rc-flip-hint">↻ flip</div>
+        </div>
+        <div class="rcard-face rcard-back" style="--b1:${b2};--b2:${shadeHex(face,light?-6:-58)};--ctext:${ctext}">${back}</div>
+      </div>
     </div>
-    <div class="tile-bar"><div class="tile-bar-fill" style="width:${Math.min(100,util)}%;background:${utilBarColor(util)}"></div></div>
-    <div class="tile-foot">
-      <span style="color:${utilTxtColor(util)};font-weight:700">${pct(util)} used</span>
-      <span class="tnum" style="color:var(--text2)">${fmt(avail)} left</span>
+    <div class="rcard-util">
+      <div class="rcard-util-bar"><div class="rcard-util-fill" style="width:${Math.min(100,util)}%;background:${utilBarColor(util)}"></div></div>
+      <div class="rcard-util-row">
+        <span style="color:${utilTxtColor(util)};font-weight:700">${pct(util)} used</span>
+        <span class="tnum" style="color:var(--text2)">${fmt(avail)} left</span>
+      </div>
     </div>
   </div>`;
 }
