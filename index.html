@@ -5452,22 +5452,27 @@ function cardIsBusiness(c){
 
 // Templates for a card's issuer AND matching business/consumer class — the hard
 // guard so a Business Platinum can never match the consumer Platinum template.
+// TDZ-safe access: BENEFIT_TEMPLATES is a const defined below; an early first
+// paint (cards cached in localStorage) can call this before it initializes.
+function _templates(){ try{ return BENEFIT_TEMPLATES; }catch(e){ return null; } }
 function templatesForCard(card){
+  const T=_templates(); if(!T) return [];
   const biz=cardIsBusiness(card);
-  return Object.keys(BENEFIT_TEMPLATES).filter(k=>BENEFIT_TEMPLATES[k].issuer===(card&&card.issuerId)&&!!BENEFIT_TEMPLATES[k].isBusiness===biz);
+  return Object.keys(T).filter(k=>T[k].issuer===(card&&card.issuerId)&&!!T[k].isBusiness===biz);
 }
 
 // Match order: (1) the user's explicit choice always wins and survives re-sync;
 // (2) a confident name match within the correct issuer AND business/consumer
 // class; otherwise no template — we never silently guess, we ask.
 function matchTemplate(card){
+  const T=_templates(); if(!T) return [null,null];
   if(card&&card.benefitTemplateKey){
     if(card.benefitTemplateKey==='none') return [null,null];
-    const t=BENEFIT_TEMPLATES[card.benefitTemplateKey];
+    const t=T[card.benefitTemplateKey];
     if(t) return [card.benefitTemplateKey,t];
   }
   const keys=templatesForCard(card);
-  for(const k of keys){ if(BENEFIT_TEMPLATES[k].match(card)) return [k,BENEFIT_TEMPLATES[k]]; }
+  for(const k of keys){ if(T[k].match(card)) return [k,T[k]]; }
   return [null,null];
 }
 
