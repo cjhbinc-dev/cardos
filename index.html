@@ -1439,12 +1439,12 @@ body{background:var(--bg)}
         <div class="sec-title" style="margin-bottom:0">User Feedback <span id="feedback-count-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle"></span></div>
         <div style="display:flex;gap:6px">
           <select id="feedback-filter" onchange="renderFeedbackPanel()" style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">
-            <option value="all">All</option>
-            <option value="bug">Bugs</option>
-            <option value="feature">Features</option>
-            <option value="question">Questions</option>
-            <option value="praise">Praise</option>
-            <option value="general">General</option>
+            <option value="all">All statuses</option>
+            <option value="new">New</option>
+            <option value="triaged">Triaged</option>
+            <option value="in_progress">In progress</option>
+            <option value="done">Done</option>
+            <option value="wont_fix">Won't fix</option>
           </select>
           <button class="btn btn-sm" onclick="loadFeedback()">↻ Refresh</button>
         </div>
@@ -3322,12 +3322,12 @@ function categorizeFeedback(text) {
 }
 
 const _fbCatMeta = {
-  bug:     {label:'Bug',          color:'var(--red)',    bg:'#fee2e2'},
-  feature: {label:'Feature',      color:'#7C3AED',       bg:'#ede9fe'},
-  question:{label:'Question',     color:'var(--amber)',  bg:'#fef3c7'},
-  praise:  {label:'Praise',       color:'var(--green)',  bg:'#d1fae5'},
-  general: {label:'General',      color:'var(--text2)',  bg:'var(--bg3)'},
+  bug:        {label:'Bug',                  color:'var(--u-high-txt)',   bg:'var(--red-bg)'},
+  feature:    {label:'Feature request',      color:'var(--ink)',          bg:'var(--gold-bg)'},
+  looks_wrong:{label:'Something looks wrong', color:'var(--u-watch-txt)',  bg:'var(--amber-bg)'},
+  other:      {label:'Other',                color:'var(--text2)',        bg:'var(--bg3)'},
 };
+const _fbStatuses = [['new','New'],['triaged','Triaged'],['in_progress','In progress'],['done','Done'],['wont_fix','Won\'t fix']];
 
 async function loadFeedback() {
   const el = document.getElementById('admin-feedback-list');
@@ -3342,118 +3342,155 @@ async function loadFeedback() {
     if (badge) { badge.textContent = newCount || ''; badge.style.display = newCount ? 'inline' : 'none'; }
     renderFeedbackPanel();
   } catch(e) {
-    el.innerHTML = '<div style="color:var(--red);font-size:13px">Could not load feedback — run the feedback table migration first.</div>';
+    el.innerHTML = '<div style="color:var(--red);font-size:13px">Could not load feedback.</div>';
   }
 }
 
+// Admin view: grouped by category, filterable by status, inline status + note.
 function renderFeedbackPanel() {
   const el = document.getElementById('admin-feedback-list');
   if (!el) return;
-  const filter = document.getElementById('feedback-filter')?.value || 'all';
-  const items = filter === 'all' ? _feedbackCache : _feedbackCache.filter(f => f.category === filter);
+  const statusFilter = document.getElementById('feedback-filter')?.value || 'all';
+  const items = statusFilter === 'all' ? _feedbackCache : _feedbackCache.filter(f => (f.status||'new') === statusFilter);
   if (!items.length) {
-    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:4px 0">No feedback yet' + (filter !== 'all' ? ' in this category' : '') + '.</div>';
+    el.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:4px 0">No feedback' + (statusFilter !== 'all' ? ' with this status' : ' yet') + '.</div>';
     return;
   }
-  el.innerHTML = items.map(f => {
-    const meta = _fbCatMeta[f.category] || _fbCatMeta.general;
-    const date = new Date(f.created_at).toLocaleString();
-    return `<div style="background:var(--bg3);border:1.5px solid var(--border);border-radius:var(--rl);padding:14px 16px;margin-bottom:8px${f.status==='new'?';border-left:3px solid var(--accent)':''}">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;background:${meta.bg};color:${meta.color}">${meta.label}</span>
-        ${f.status==='new'?'<span style="font-size:10px;font-weight:700;color:var(--accent);background:rgba(99,102,241,.12);padding:2px 7px;border-radius:20px">NEW</span>':''}
-        <span style="font-size:11px;color:var(--text3);margin-left:auto">${date}</span>
-        <button class="btn btn-xs" onclick="markFeedbackRead('${f.id}',this)" style="font-size:10px;padding:2px 7px">${f.status==='new'?'Mark read':'✓ Read'}</button>
-      </div>
-      <div style="font-size:13px;color:var(--text);line-height:1.5;margin-bottom:6px">${esc(f.message)}</div>
-      ${f.user_email?`<div style="font-size:11px;color:var(--text3)">From: ${esc(f.user_email)}</div>`:''}
-      ${f.page?`<div style="font-size:11px;color:var(--text3)">Page: ${esc(f.page)}</div>`:''}
-    </div>`;
+  // group by category
+  const groups = {};
+  items.forEach(f => { const c = _fbCatMeta[f.category] ? f.category : 'other'; (groups[c]=groups[c]||[]).push(f); });
+  const order = ['bug','looks_wrong','feature','other'];
+  el.innerHTML = order.filter(c=>groups[c]).map(cat => {
+    const meta = _fbCatMeta[cat];
+    const rows = groups[cat].map(f => {
+      const date = new Date(f.created_at).toLocaleString();
+      const md = f.metadata || {};
+      const ctx = [md.view?('view: '+md.view):'', md.appVersion?('v'+md.appVersion):'', md.viewport?(md.viewport):''].filter(Boolean).join(' · ');
+      const statusOpts = _fbStatuses.map(([k,l])=>`<option value="${k}"${(f.status||'new')===k?' selected':''}>${l}</option>`).join('');
+      return `<div style="background:var(--bg2);border:1px solid var(--border);border-radius:var(--rl);padding:13px 15px;margin-bottom:8px${(f.status||'new')==='new'?';border-left:3px solid var(--gold)':''}">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;flex-wrap:wrap">
+          <span style="font-size:11px;color:var(--text3)">${date}</span>
+          ${md.screenshotPath?`<span style="font-size:11px;color:var(--text2)">📎 screenshot</span>`:''}
+          <select onchange="setFeedbackStatus('${f.id}',this.value)" style="margin-left:auto;font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border);background:var(--bg2);color:var(--text)">${statusOpts}</select>
+        </div>
+        <div style="font-size:13px;color:var(--text);line-height:1.55;margin-bottom:6px">${esc(f.message)}</div>
+        ${ctx?`<div style="font-size:11px;color:var(--text3);margin-bottom:8px">${esc(ctx)}</div>`:''}
+        <input type="text" placeholder="Private admin note…" value="${esc(f.admin_note||'')}" onblur="setFeedbackNote('${f.id}',this.value)" style="width:100%;box-sizing:border-box;font-size:12px;padding:6px 9px;border-radius:6px;border:1px dashed var(--border2);background:var(--bg3);color:var(--text2)">
+      </div>`;
+    }).join('');
+    return `<div style="margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:9px"><span style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;background:${meta.bg};color:${meta.color}">${meta.label}</span><span style="font-size:11px;color:var(--text3)">${groups[cat].length}</span></div>${rows}</div>`;
   }).join('');
 }
 
-async function markFeedbackRead(id, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+async function setFeedbackStatus(id, status) {
+  const item = _feedbackCache.find(f => f.id === id); if (item) item.status = status;
   await fetch('/.netlify/functions/list-feedback', {
-    method: 'POST', headers: {...getAuthHeaders(), 'Content-Type': 'application/json'},
-    body: JSON.stringify({action:'mark_read', id})
+    method: 'POST', headers: {...getAuthHeaders(),'Content-Type':'application/json'},
+    body: JSON.stringify({action:'set_status', id, status})
   }).catch(()=>{});
-  const item = _feedbackCache.find(f => f.id === id);
-  if (item) item.status = 'read';
-  renderFeedbackPanel();
   const badge = document.getElementById('feedback-count-badge');
-  const newCount = _feedbackCache.filter(f => f.status === 'new').length;
-  if (badge) { badge.textContent = newCount || ''; badge.style.display = newCount ? 'inline' : 'none'; }
+  const n = _feedbackCache.filter(f => f.status === 'new').length;
+  if (badge) { badge.textContent = n || ''; badge.style.display = n ? 'inline' : 'none'; }
+}
+async function setFeedbackNote(id, note) {
+  const item = _feedbackCache.find(f => f.id === id);
+  if (item && (item.admin_note||'') === note) return;
+  if (item) item.admin_note = note;
+  await fetch('/.netlify/functions/list-feedback', {
+    method: 'POST', headers: {...getAuthHeaders(),'Content-Type':'application/json'},
+    body: JSON.stringify({action:'set_note', id, admin_note:note})
+  }).catch(()=>{});
 }
 
+const APP_VERSION = '2026.07.24';
+const FB_CATS = [['bug','Bug'],['feature','Feature request'],['looks_wrong','Something looks wrong'],['other','Other']];
+let _fbCat = null, _fbShot = null;
+
 function openFeedbackModal() {
-  const currentPage = localStorage.getItem('cardos_last_page') || 'dashboard';
+  _fbCat = null; _fbShot = null;
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
   overlay.innerHTML = `<div class="modal" style="max-width:480px">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px">
-      <div style="width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#6366F1,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:18px">💬</div>
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:18px">
+      <div style="width:36px;height:36px;border-radius:9px;background:var(--ink);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px">💬</div>
       <div>
-        <div style="font-size:16px;font-weight:700;color:var(--text)">Send Feedback</div>
-        <div style="font-size:12px;color:var(--text3)">Bugs, ideas, questions — all welcome</div>
+        <div style="font-size:16px;font-weight:800;color:var(--ink)">Send feedback</div>
+        <div style="font-size:12px;color:var(--text3)">Bugs, ideas, or anything that looks off</div>
       </div>
-      <button onclick="this.closest('.overlay').remove()" style="margin-left:auto;background:none;border:none;font-size:20px;color:var(--text3);cursor:pointer;line-height:1">×</button>
+      <button onclick="this.closest('.overlay').remove()" style="margin-left:auto;background:none;border:none;font-size:22px;color:var(--text3);cursor:pointer;line-height:1">×</button>
     </div>
     <div style="margin-bottom:14px">
-      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">Category</label>
+      <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:7px">Category <span style="color:var(--red)">*</span></label>
       <div style="display:flex;gap:6px;flex-wrap:wrap" id="fb-cat-btns">
-        ${Object.entries(_fbCatMeta).map(([k,v])=>`<button onclick="selectFbCat('${k}',this)" class="badge bg-gray" style="cursor:pointer;border:none;padding:6px 12px;font-size:12px;font-weight:600" data-cat="${k}">${v.label}</button>`).join('')}
+        ${FB_CATS.map(([k,l])=>`<button type="button" onclick="selectFbCat('${k}',this)" data-cat="${k}" style="cursor:pointer;border:1.5px solid var(--border);background:var(--bg2);color:var(--text2);padding:7px 13px;font-size:12.5px;font-weight:600;border-radius:20px">${l}</button>`).join('')}
       </div>
-      <input type="hidden" id="fb-cat-val" value="">
+    </div>
+    <div style="margin-bottom:14px">
+      <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px">Message <span style="color:var(--red)">*</span></label>
+      <textarea id="fb-message" rows="4" placeholder="Describe the issue, idea, or question…" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
     </div>
     <div style="margin-bottom:16px">
-      <label style="font-size:12px;font-weight:600;color:var(--text2);display:block;margin-bottom:6px">What's on your mind?</label>
-      <textarea id="fb-message" rows="4" placeholder="Describe the issue, idea, or question…" oninput="autoDetectFbCat(this.value)" style="width:100%;box-sizing:border-box;padding:10px 12px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--bg2);color:var(--text);font-size:13px;resize:vertical;font-family:inherit"></textarea>
+      <label style="font-size:12px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px">Screenshot (optional)</label>
+      <input type="file" id="fb-shot" accept="image/*" onchange="_fbShot=this.files[0]||null" style="font-size:12px;color:var(--text2)">
+      <div style="font-size:11px;color:var(--text3);margin-top:8px">We'll attach your app version, current screen, and browser — never any of your financial data.</div>
     </div>
+    <div id="fb-err" style="display:none;font-size:12px;color:var(--red);margin-bottom:10px"></div>
     <div style="display:flex;gap:8px;justify-content:flex-end">
       <button class="btn" onclick="this.closest('.overlay').remove()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitFeedback('${currentPage}')">Send feedback</button>
+      <button class="btn btn-primary" id="fb-send" onclick="submitFeedback()">Send feedback</button>
     </div>
   </div>`;
   document.body.appendChild(overlay);
 }
 
 function selectFbCat(cat, btn) {
+  _fbCat = cat;
   document.querySelectorAll('#fb-cat-btns button').forEach(b => {
-    const m = _fbCatMeta[b.dataset.cat];
-    b.style.background = 'var(--bg3)'; b.style.color = 'var(--text2)';
+    b.style.background = 'var(--bg2)'; b.style.color = 'var(--text2)'; b.style.borderColor = 'var(--border)';
   });
-  const m = _fbCatMeta[cat];
-  btn.style.background = m.bg; btn.style.color = m.color;
-  const inp = document.getElementById('fb-cat-val');
-  if (inp) inp.value = cat;
+  btn.style.background = 'var(--ink)'; btn.style.color = 'var(--cream)'; btn.style.borderColor = 'var(--ink)';
 }
 
-function autoDetectFbCat(text) {
-  const cat = categorizeFeedback(text);
-  const btn = document.querySelector(`#fb-cat-btns [data-cat="${cat}"]`);
-  if (btn) selectFbCat(cat, btn);
-}
-
-async function submitFeedback(page) {
+async function submitFeedback() {
   const message = document.getElementById('fb-message')?.value?.trim();
-  const category = document.getElementById('fb-cat-val')?.value || categorizeFeedback(message);
-  if (!message) { showToast('Please write something first'); return; }
-  const btn = document.querySelector('.overlay .btn-primary');
-  if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+  const errEl = document.getElementById('fb-err');
+  const showErr = t => { if (errEl){ errEl.textContent = t; errEl.style.display = 'block'; } };
+  if (!_fbCat) return showErr('Please pick a category.');
+  if (!message) return showErr('Please write a message.');
+  const btn = document.getElementById('fb-send');
+  btn.disabled = true; btn.textContent = 'Sending…'; if (errEl) errEl.style.display = 'none';
+
   try {
+    // Optional screenshot → user-scoped storage folder (RLS: <uid>/...)
+    let screenshotPath = null;
+    if (_fbShot) {
+      const sb = getSupabase();
+      if (sb && _currentUser) {
+        const ext = (_fbShot.name.split('.').pop() || 'png').toLowerCase().slice(0,5);
+        const path = `${_currentUser.id}/${Date.now()}.${ext}`;
+        const up = await sb.storage.from('feedback-shots').upload(path, _fbShot, { upsert: false });
+        if (!up.error) screenshotPath = path; else console.warn('shot upload:', up.error.message);
+      }
+    }
+    const metadata = {
+      appVersion: APP_VERSION,
+      view: localStorage.getItem('cardos_last_page') || 'dashboard',
+      userAgent: navigator.userAgent,
+      viewport: window.innerWidth + 'x' + window.innerHeight,
+      screenshotPath,
+    };
     const r = await fetch('/.netlify/functions/submit-feedback', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({message, category, userEmail: _currentUser?.email || null, page})
+      headers: { ...getAuthHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, category: _fbCat, metadata }),
     });
-    const data = await r.json();
-    if (!r.ok) throw new Error(data.error || 'Failed');
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data.error || 'The message wasn\'t sent. Please try again.');
     document.querySelector('.overlay')?.remove();
     showToast('✓ Feedback sent — thank you!');
-  } catch(e) {
-    if (btn) { btn.disabled = false; btn.textContent = 'Send feedback'; }
-    showToast('Could not send feedback: ' + e.message);
+  } catch (e) {
+    btn.disabled = false; btn.textContent = 'Send feedback';
+    showErr(e.message || 'The message wasn\'t sent. Please try again.');
   }
 }
 

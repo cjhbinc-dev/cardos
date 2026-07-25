@@ -23,12 +23,20 @@ exports.handler = async (event) => {
   }
   // ── End Auth ───────────────────────────────────────────────────────────────
 
-  // POST: mark a single item as read
+  // POST: admin mutations — status change and/or private admin note
   if (event.httpMethod === 'POST') {
-    const { action, id } = JSON.parse(event.body || '{}');
-    if (action === 'mark_read' && id) {
-      await supabase.from('feedback').update({ status: 'read' }).eq('id', id);
+    const { action, id, status, admin_note } = JSON.parse(event.body || '{}');
+    if (!id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'id required' }) };
+    const STATUSES = ['new', 'triaged', 'in_progress', 'done', 'wont_fix'];
+    const patch = { updated_at: new Date().toISOString() };
+    if (action === 'set_status' && STATUSES.includes(status)) patch.status = status;
+    if (action === 'set_note') patch.admin_note = (admin_note || '').slice(0, 4000);
+    if (patch.status === undefined && patch.admin_note === undefined) {
+      return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'nothing to update' }) };
     }
+    const { data, error: upErr } = await supabase.from('feedback').update(patch).eq('id', id).select('id');
+    if (upErr) return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: upErr.message }) };
+    if (!data || !data.length) return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'not found' }) };
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ ok: true }) };
   }
 
