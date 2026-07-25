@@ -5598,16 +5598,27 @@ function toggleSidebar(){
 }
 applySidebarState();
 window.addEventListener('resize',()=>{
-  if(window.innerWidth>768)closeMobileSidebar();
+  if(window.innerWidth>768){
+    const sb=document.querySelector('.sidebar');
+    sb?.classList.remove('mobile-open');
+    sb?.style.removeProperty('left'); // let desktop layout own positioning
+    document.getElementById('sidebar-overlay')?.classList.remove('open');
+  }
   applySidebarState();
 });
 
+// Drawer position is driven by inline !important (highest cascade priority) —
+// a stylesheet override wasn't winning, so we set it directly and unambiguously.
 function openMobileSidebar(){
-  document.querySelector('.sidebar').classList.add('mobile-open');
+  const sb=document.querySelector('.sidebar');
+  sb.classList.add('mobile-open');
+  sb.style.setProperty('left','0','important');
   document.getElementById('sidebar-overlay').classList.add('open');
 }
 function closeMobileSidebar(){
-  document.querySelector('.sidebar')?.classList.remove('mobile-open');
+  const sb=document.querySelector('.sidebar');
+  sb?.classList.remove('mobile-open');
+  sb?.style.setProperty('left','-260px','important');
   document.getElementById('sidebar-overlay')?.classList.remove('open');
 }
 
