@@ -311,6 +311,34 @@ URIs for new Items.
 - **Still needs CJ:** real Chase + Citi connect verification on production (needs
   credentials). Amex already proven on the test site.
 
+## Feedback system (Part D, 2026-07-24 — live)
+
+`feedback` table (id/user_id/category/message/metadata/status/admin_note/
+created_at/updated_at) + RLS (insert-own, read-own; only the service key mutates).
+Private `feedback-shots` storage bucket, path scoped to `<user_id>/` by policy.
+`submit-feedback.js` is JWT-verified and scoped to user_id, metadata whitelisted
+(version/view/UA/viewport/screenshot — never financial data), best-effort
+`NOTIFICATION_EMAIL` (needs `SENDGRID_API_KEY` — currently unset, so email
+no-ops; the row still saves). `list-feedback.js` is **admin-gated** (verified
+JWT email == `ADMIN_EMAIL`) with `set_status`/`set_note`. E2E verified:
+no-auth→401, submit scoped to submitter, admin→200, **non-admin→403**, status/
+note persist. Admin UI: grouped by category, filter by status, inline status +
+private note.
+
+## Two production bugs fixed (2026-07-24)
+
+- **Mobile sidebar stuck on-screen.** The drawer slid via a CSS `transition` on
+  `left`; in throttled conditions the transition registered as a perpetually
+  "running" animation that pinned the position, overriding even inline
+  `!important` (confirmed by cancelling it). Fixed: drawer positioned instantly
+  via inline `left` (open=0 / closed=-260px) with **no transition** — can't get
+  stuck. Verified at 375px: hidden by default, hamburger opens a full labeled
+  drawer, content full-width.
+- **Citi Strata wrong-match.** `citi_strata` matched `/strata|premier/`, so a
+  plain "Citi Strata Card" inherited the Strata Premier's $95 fee + benefits.
+  Now requires `/premier/`; plain Strata + AAdvantage fall to the picker.
+  (Benefits does not crash — no console errors; the ROI tracker was not broken.)
+
 ## Benefits catalog (Section 1, 2026-07-24)
 
 19 templates, structured as a data catalog (name/issuer/isBusiness/annualFee/
