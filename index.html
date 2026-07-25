@@ -10,7 +10,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script>
-if(localStorage.getItem('cardos_dark')==='1')document.documentElement.setAttribute('data-theme','dark');
+/* Cinematic dark is the default 2070 theme; light only if explicitly chosen. */
+if(localStorage.getItem('cardos_dark')!=='light')document.documentElement.setAttribute('data-theme','dark');
 (function(){
   try{
     // If this is an auth callback (magic link / invite click), wipe any stale session so
@@ -351,19 +352,44 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
   .layout{grid-template-columns:48px 1fr}
 }
 
-/* ── Dark mode ── */
+/* ══ CINEMATIC DARK — the primary "2070" theme (deep navy, glass, glow) ══ */
 [data-theme="dark"]{
-  --bg:#0F1118;--bg2:#181B27;--bg3:#1E2235;--bg4:#252843;
-  --border:#2A2D42;--border2:#363A58;
-  --text:#E2E8F0;--text2:#8892B0;--text3:#4A527A;
+  --bg:#070A13;           /* deep space, never pure black (OLED smear) */
+  --bg2:#0F1524;          /* elevated surface */
+  --bg3:#151C30;          /* inset */
+  --bg4:#1C2540;          /* hover */
+  --border:#212B45;       /* hairline */
+  --border2:#2E3A5C;
+  --text:#EAF0FF;         /* primary — high contrast */
+  --text2:#94A2C6;        /* secondary */
+  --text3:#5D6A93;        /* muted */
+  --ink:#EAF0FF;          /* headings/primary text → light in dark */
+  --accent:#3B6EF6;       /* electric primary CTA (takes light text) */
+  --accent2:#2E5AD6;
+  --accent-soft:rgba(59,110,246,.18);
+  --gold:#F0C24A; --gold2:#E8B23A; --gold-bg:rgba(240,194,74,.14);
+  --cream:#F2F5FF;        /* text on accent + active nav */
+  --paper:#070A13; --surface:#0F1524;
   --shadow-sm:0 1px 3px rgba(0,0,0,.5);
-  --shadow:0 4px 12px rgba(0,0,0,.6);
-  --shadow-lg:0 12px 32px rgba(0,0,0,.7);
-  --accent-soft:rgba(99,102,241,.18);
-  --green-bg:rgba(22,163,74,.13);--amber-bg:rgba(217,119,6,.13);
-  --red-bg:rgba(220,38,38,.13);--blue-bg:rgba(37,99,235,.13);
-  --purple-bg:rgba(124,58,237,.13);--teal-bg:rgba(13,148,136,.13);--pink-bg:rgba(219,39,119,.13);
+  --shadow:0 10px 30px rgba(0,0,0,.6);
+  --shadow-lg:0 24px 60px rgba(0,0,0,.72);
+  --shadow-card:0 12px 34px rgba(0,0,0,.55);
+  --glow-gold:0 0 26px rgba(240,194,74,.30);
+  --glow-accent:0 0 26px rgba(59,110,246,.34);
+  /* neon-leaning utilization tiers for the futuristic feel (contrast-checked) */
+  --u-healthy:#35E3A0; --u-healthy-txt:#7CF3C6;
+  --u-watch:#F5C64B;   --u-watch-txt:#FADB86;
+  --u-high:#FF6E61;    --u-high-txt:#FF9A90;
+  --green:#35E3A0; --green2:#7CF3C6; --green-bg:rgba(53,227,160,.12);
+  --amber:#F5C64B; --amber2:#FADB86; --amber-bg:rgba(245,198,75,.12);
+  --red:#FF6E61;   --red2:#FF9A90;   --red-bg:rgba(255,110,97,.12);
+  --blue:#5B8DEF;  --blue-bg:rgba(91,141,239,.14);
+  --purple:#94A2C6;--purple-bg:rgba(148,162,198,.12);
+  --teal:#35E3A0;  --teal-bg:rgba(53,227,160,.12);
+  --pink:#FF6E61;  --pink-bg:rgba(255,110,97,.12);
+  --side:#0A0E1A;  --side2:#151C30;  --side-text:#7E8CB2; --side-active:#EAF0FF;
 }
+[data-theme="dark"] .know-featured-right{background:var(--bg2)}
 [data-theme="dark"] select option{background:#1E2235}
 [data-theme="dark"] .topbar,[data-theme="dark"] .auth-box,[data-theme="dark"] .modal{background:var(--bg2)}
 [data-theme="dark"] .code-block{background:#0A0C14}
@@ -846,24 +872,43 @@ body{background:var(--bg)}
 .attn-msg{font-size:13.5px;color:var(--text);line-height:1.6}
 .attn-msg strong{color:var(--ink);font-weight:700}
 
-/* ══ Glass background — a soft aurora so frosted panels have something to blur ══ */
-body::before{content:'';position:fixed;inset:0;z-index:-2;background:
+/* ══ Ambient background — drifting aurora + faint HUD grid ══ */
+body::before{content:'';position:fixed;inset:-20%;z-index:-2;pointer-events:none;
+  background:
   radial-gradient(1100px 640px at 82% -8%, rgba(232,178,58,.16), transparent 60%),
   radial-gradient(1000px 720px at -6% 108%, rgba(22,35,63,.14), transparent 58%),
   radial-gradient(760px 520px at 60% 120%, rgba(63,169,127,.10), transparent 60%),
-  var(--bg);}
+  var(--bg);
+  animation:auroraDrift 26s ease-in-out infinite alternate;}
 [data-theme="dark"] body::before{background:
-  radial-gradient(1100px 640px at 82% -8%, rgba(232,178,58,.14), transparent 60%),
-  radial-gradient(1000px 720px at -6% 108%, rgba(80,110,190,.16), transparent 58%),
+  radial-gradient(1000px 620px at 84% -10%, rgba(240,194,74,.16), transparent 60%),
+  radial-gradient(1100px 760px at -8% 110%, rgba(59,110,246,.20), transparent 58%),
+  radial-gradient(820px 560px at 58% 122%, rgba(53,227,160,.12), transparent 60%),
+  radial-gradient(700px 500px at 20% 30%, rgba(120,90,220,.10), transparent 62%),
   var(--bg);}
+body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
+  background-image:linear-gradient(rgba(120,140,190,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,140,190,.05) 1px,transparent 1px);
+  background-size:56px 56px;-webkit-mask-image:radial-gradient(circle at 50% 40%,#000,transparent 78%);mask-image:radial-gradient(circle at 50% 40%,#000,transparent 78%);}
+[data-theme="dark"] body::after{background-image:linear-gradient(rgba(120,150,230,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(120,150,230,.06) 1px,transparent 1px)}
+@keyframes auroraDrift{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2.5%,1.5%,0) scale(1.06)}}
+@media(prefers-reduced-motion:reduce){body::before{animation:none}}
 
 /* ── Glass surfaces ── */
 .glass{background:rgba(251,250,247,.62);backdrop-filter:blur(18px) saturate(1.35);-webkit-backdrop-filter:blur(18px) saturate(1.35);border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 34px rgba(22,35,63,.10),inset 0 1px 0 rgba(255,255,255,.6)}
-[data-theme="dark"] .glass{background:rgba(24,27,39,.55);border:1px solid rgba(255,255,255,.08);box-shadow:0 10px 34px rgba(0,0,0,.4),inset 0 1px 0 rgba(255,255,255,.05)}
 .dash-panel{background:rgba(251,250,247,.6)!important;backdrop-filter:blur(18px) saturate(1.3);-webkit-backdrop-filter:blur(18px) saturate(1.3);border:1px solid rgba(255,255,255,.55)!important;box-shadow:0 10px 34px rgba(22,35,63,.09),inset 0 1px 0 rgba(255,255,255,.6)!important}
 .topbar{background:rgba(251,250,247,.72)!important;backdrop-filter:blur(16px) saturate(1.3);-webkit-backdrop-filter:blur(16px) saturate(1.3);border-bottom:1px solid rgba(255,255,255,.5)!important}
 .attn-card{background:rgba(251,250,247,.66)!important;backdrop-filter:blur(14px) saturate(1.25);-webkit-backdrop-filter:blur(14px) saturate(1.25)}
 .overlay .modal{background:rgba(251,250,247,.82)!important;backdrop-filter:blur(24px) saturate(1.4);-webkit-backdrop-filter:blur(24px) saturate(1.4);border:1px solid rgba(255,255,255,.6)}
+/* Dark glass — frosted deep-navy with a hairline top highlight */
+[data-theme="dark"] .glass,[data-theme="dark"] .dash-panel{background:rgba(15,21,36,.55)!important;border:1px solid rgba(120,150,230,.14)!important;box-shadow:0 14px 40px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.06)!important}
+[data-theme="dark"] .topbar{background:rgba(9,13,24,.6)!important;border-bottom:1px solid rgba(120,150,230,.12)!important}
+[data-theme="dark"] .attn-card{background:rgba(15,21,36,.6)!important;border:1px solid rgba(120,150,230,.14)}
+[data-theme="dark"] .overlay .modal{background:rgba(13,18,32,.86)!important;border:1px solid rgba(120,150,230,.16)}
+[data-theme="dark"] .card-item{background:rgba(15,21,36,.5)!important}
+/* Glow accents in dark — active nav + primary CTA */
+[data-theme="dark"] .btn-primary{box-shadow:0 6px 20px rgba(59,110,246,.4),0 0 0 1px rgba(120,150,230,.2)}
+[data-theme="dark"] .sidebar .nav-btn.active{box-shadow:inset 2px 0 0 var(--gold),0 0 22px rgba(240,194,74,.14)}
+[data-theme="dark"] .summary-owed-val{text-shadow:0 0 30px rgba(240,194,74,.25)}
 
 /* ══ Card grid ══ */
 .tile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px}
@@ -919,7 +964,21 @@ body::before{content:'';position:fixed;inset:0;z-index:-2;background:
 .rcard-util-fill{height:100%;border-radius:99px;transition:width .6s cubic-bezier(.4,0,.2,1)}
 .rcard-util-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
 .rc-flip-hint{position:absolute;right:12px;bottom:10px;z-index:2;font-size:9px;letter-spacing:.4px;text-transform:uppercase;opacity:.5;display:flex;align-items:center;gap:3px}
-@media(prefers-reduced-motion:reduce){.rcard-flip{transition:none}.rcard-face::before{display:none}}
+/* Per-product generative skins — each card looks distinct even within an issuer */
+.rc-pattern{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.55;mix-blend-mode:soft-light}
+.pat-guilloche{background:repeating-radial-gradient(circle at 25% 120%,transparent 0 3px,rgba(255,255,255,.10) 3px 4px)}
+.pat-holo{background:conic-gradient(from 0deg at 60% 40%,rgba(255,60,140,.16),rgba(60,200,255,.16),rgba(60,255,170,.16),rgba(255,210,70,.16),rgba(255,60,140,.16));mix-blend-mode:overlay;animation:holoSpin 12s linear infinite}
+.pat-mesh{background:repeating-linear-gradient(60deg,transparent 0 15px,rgba(255,255,255,.07) 15px 16px),repeating-linear-gradient(-60deg,transparent 0 15px,rgba(255,255,255,.07) 15px 16px)}
+.pat-waves{background:repeating-radial-gradient(circle at 85% 15%,transparent 0 11px,rgba(255,255,255,.08) 11px 13px)}
+.pat-carbon{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-size:9px 9px;background-position:0 0,4.5px 4.5px}
+.pat-circuit{background:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:24px 24px}
+.pat-metal{background:repeating-linear-gradient(93deg,rgba(255,255,255,.10) 0 1px,transparent 1px 3px);opacity:.4}
+.pat-topo{background:repeating-radial-gradient(ellipse 65% 42% at 38% 62%,transparent 0 9px,rgba(255,255,255,.07) 9px 10px)}
+.pat-hex{background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.08) 1.4px,transparent 1.6px);background-size:16px 28px}
+.rc-holo-foil{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.28) 46%,rgba(180,220,255,.14) 50%,transparent 60%);opacity:0;transform:translateX(-20%);transition:opacity .4s}
+.rcard:hover .rc-holo-foil{opacity:.7;transform:translateX(20%);transition:opacity .5s,transform .8s cubic-bezier(.16,1,.3,1)}
+@keyframes holoSpin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.rcard-flip{transition:none}.rcard-face::before{display:none}.pat-holo{animation:none}}
 
 /* Empty hero — the one thing, when there are no cards */
 .empty-hero{text-align:center;padding:56px 28px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--rxl);box-shadow:var(--shadow-sm)}
@@ -2264,6 +2323,42 @@ function shadeHex(hex,amt){ // amt<0 darken, >0 lighten
   const n=[0,2,4].map(i=>{let v=parseInt(h.slice(i,i+2),16)+amt;return Math.max(0,Math.min(255,v));});
   return '#'+n.map(v=>v.toString(16).padStart(2,'0')).join('');
 }
+// Per-product card skins — curated gradient + generative pattern so each product
+// (Sapphire Reserve ≠ Freedom, Citi AAdvantage ≠ Strata Premier) is visually its
+// own card. Abstract/generative only — no reproduced issuer artwork.
+const PRODUCT_SKIN={
+  amex_platinum:{pat:'pat-metal',g:['#E9E9EC','#AFB4BE']},
+  amex_biz_platinum:{pat:'pat-carbon',g:['#2B303B','#0C0E13']},
+  amex_gold:{pat:'pat-guilloche',g:['#E7C36A','#B0842C']},
+  amex_biz_gold:{pat:'pat-guilloche',g:['#D9AE52','#946F24']},
+  amex_bcp:{pat:'pat-waves',g:['#2E7FC2','#123F6C']},
+  amex_bce:{pat:'pat-mesh',g:['#4AA3DF','#1C68AC']},
+  chase_reserve:{pat:'pat-holo',g:['#20263C','#05070E']},
+  chase_preferred:{pat:'pat-waves',g:['#1E5A96','#0A2A4C']},
+  chase_freedom_unlimited:{pat:'pat-mesh',g:['#1E88D6','#0D4A82']},
+  chase_freedom_flex:{pat:'pat-circuit',g:['#164B7A','#0A2A47']},
+  chase_ink_preferred:{pat:'pat-circuit',g:['#16406B','#08243F']},
+  chase_ink_cash:{pat:'pat-hex',g:['#0E6B3E','#053A20']},
+  chase_ink_unlimited:{pat:'pat-mesh',g:['#1E88D6','#0D4A82']},
+  citi_strata:{pat:'pat-topo',g:['#123761','#050C1A']},
+  citi_double_cash:{pat:'pat-carbon',g:['#22406E','#0A1930']},
+  citi_custom_cash:{pat:'pat-waves',g:['#1C64B0','#0A315F']},
+  capone_venture_x:{pat:'pat-metal',g:['#22323F','#0A121B']},
+  capone_venture:{pat:'pat-waves',g:['#8B1E2D','#460D16']},
+  capone_savor:{pat:'pat-holo',g:['#C0392B','#57120D']},
+};
+const PAT_POOL=['pat-guilloche','pat-waves','pat-mesh','pat-topo','pat-circuit','pat-hex','pat-carbon'];
+function hashStr(s){let h=0;for(let i=0;i<(s||'').length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
+function cardSkin(c){
+  const [key]=matchTemplate(c);
+  if(key&&PRODUCT_SKIN[key]){const s=PRODUCT_SKIN[key];return {b1:s.g[0],b2:s.g[1],pattern:s.pat,light:isLightColor(s.g[0])};}
+  // no template → derive a deterministic, unique skin so no two cards look alike
+  const face=cardFaceColor(c); const light=isLightColor(face);
+  const b1=shadeHex(face,light?14:26), b2=shadeHex(face,light?-30:-52);
+  // hue-rotate the pattern hue slightly per card so same-issuer cards differ
+  const h=hashStr((c.issuerId||'')+'|'+(c.name||'')+'|'+(c.last4||''));
+  return {b1:shadeHex(b1,(h%3)*6-6),b2:shadeHex(b2,((h>>2)%3)*6-6),pattern:PAT_POOL[h%PAT_POOL.length],light};
+}
 // Likely network per issuer (illustrative — Plaid doesn't return the network)
 const ISSUER_NET={amex:'amex',disc:'discover',chase:'visa',boa:'visa',wells:'visa',usb:'visa',citi:'mastercard',capone:'mastercard',barc:'mastercard'};
 function networkMark(issuerId,light){
@@ -2307,8 +2402,8 @@ function flipCard(ev){ const w=ev.currentTarget; if(w)w.classList.toggle('flippe
 // dashboard tiles and the My Cards page so every card looks like a real card.
 function cardVisual(c){
   const v=cv(c); const util=v.util||0;
-  const face=cardFaceColor(c); const light=isLightColor(face);
-  const b1=shadeHex(face,light?14:26), b2=shadeHex(face,light?-30:-46);
+  const skin=cardSkin(c); const light=skin.light;
+  const b1=skin.b1, b2=skin.b2; const face=b2;
   const ctext=light?'#16233F':'#F3F1EC';
   const iss=getIss(c.issuerId);
   const avail=Math.max(0,c.limit-c.balance);
@@ -2337,6 +2432,8 @@ function cardVisual(c){
   return`<div class="rcard" data-tilt tabindex="0" onclick="flipCard(event)" onkeydown="if(event.key==='Enter')flipCard(event)" title="Tap to flip">
     <div class="rcard-flip">
       <div class="rcard-face rcard-front" style="--b1:${b1};--b2:${b2};--ctext:${ctext}">
+        <div class="rc-pattern ${skin.pattern}"></div>
+        <div class="rc-holo-foil"></div>
         <div class="rc-top"><span class="rc-issuer">${esc(iss.name)}</span><span class="rc-net">${networkMark(c.issuerId,light)}</span></div>
         <div class="rc-chip"></div>
         <div class="rc-wifi" style="color:${ctext}">${_wifiSVG}</div>
@@ -5759,8 +5856,8 @@ function navBenefits(btn){
 // ═══════════════════════════════════════════════════════
 function toggleDark(){
   const isDark=document.documentElement.getAttribute('data-theme')==='dark';
-  if(isDark){document.documentElement.removeAttribute('data-theme');localStorage.setItem('cardos_dark','0');}
-  else{document.documentElement.setAttribute('data-theme','dark');localStorage.setItem('cardos_dark','1');}
+  if(isDark){document.documentElement.removeAttribute('data-theme');localStorage.setItem('cardos_dark','light');}
+  else{document.documentElement.setAttribute('data-theme','dark');localStorage.setItem('cardos_dark','dark');}
   updateDarkBtn();
 }
 function updateDarkBtn(){
