@@ -265,6 +265,23 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 .kpi-sub{font-size:12px;color:var(--text2);margin-top:4px}
 .payoff-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border);font-size:13px}
 .payoff-row:last-child{border-bottom:none}
+/* Payoff calculator + strategy UI */
+.pf-controls{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.pf-sliderrow{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;margin-top:12px}
+.pf-field{display:flex;flex-direction:column;gap:5px;font-size:12px;color:var(--text2)}
+.pf-field>span{font-weight:600}
+.pf-field input,.pf-field select{min-width:88px}
+.pf-field input[type=range]{width:100%;min-width:150px;accent-color:var(--accent);padding:0}
+.pf-scary{background:var(--red-bg);border:1px solid rgba(255,110,97,.35);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.6;color:var(--text);margin-bottom:10px}
+.pf-good{background:var(--green-bg);border:1px solid rgba(53,227,160,.3);border-radius:10px;padding:12px 14px;font-size:13.5px;line-height:1.6;color:var(--text);margin-bottom:10px}
+.pf-row{font-size:13px;line-height:1.6;color:var(--text2);margin-bottom:8px}
+.pf-note{font-size:11px;color:var(--text3);line-height:1.6;margin-top:10px;border-top:1px solid var(--border);padding-top:8px}
+.pf-apr-prompt{background:var(--amber-bg);border:1px solid rgba(245,198,75,.35);border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;color:var(--text);margin-bottom:10px}
+.pf-empty{color:var(--text3);font-size:13px;padding:14px 0}
+.pf-toggle{display:inline-flex;border:1px solid var(--border2);border-radius:9px;overflow:hidden;flex-shrink:0}
+.pf-toggle button{padding:9px 18px;font-size:13px;font-weight:600;background:transparent;border:none;color:var(--text2);cursor:pointer;font-family:inherit}
+.pf-toggle button.on{background:var(--accent);color:var(--cream)}
+@media(max-width:640px){.pf-controls,.pf-sliderrow{flex-direction:column;align-items:stretch}.pf-field input,.pf-field select{width:100%}.pf-toggle{width:100%}.pf-toggle button{flex:1}}
 
 /* ── Setup / Plaid cards ── */
 .plaid-card{background:var(--bg2);border:1.5px solid var(--border);border-radius:var(--rl);padding:20px 24px;margin-bottom:12px;box-shadow:var(--shadow-sm)}
@@ -1506,21 +1523,19 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
     </div>
   </div>
   <div class="chart-card" style="margin-bottom:16px">
-    <div class="chart-title">Simulated balance trend</div>
-    <div class="chart-sub">Projected balance over 12 months at minimum payments vs. accelerated payoff</div>
-    <div class="chart-wrap" style="height:220px"><canvas id="chart-trend"></canvas></div>
+    <div class="chart-title">Payoff calculator</div>
+    <div class="chart-sub">One card — the true cost of minimum-only, and what a bigger payment buys you</div>
+    <div id="payoff-percard-body" style="margin-top:12px"></div>
   </div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
-    <div class="chart-card">
-      <div class="chart-title">Payoff projections</div>
-      <div class="chart-sub">At minimum payments only</div>
-      <div id="payoff-table"></div>
-    </div>
-    <div class="chart-card">
-      <div class="chart-title">Annual fees this year</div>
-      <div class="chart-sub">Upcoming annual fees by card</div>
-      <div id="fee-table"></div>
-    </div>
+  <div class="chart-card" style="margin-bottom:16px">
+    <div class="chart-title">Which card to pay first</div>
+    <div class="chart-sub">Avalanche vs snowball across every card, with one extra amount per month</div>
+    <div id="payoff-strategy-body" style="margin-top:12px"></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title">Annual fees this year</div>
+    <div class="chart-sub">Upcoming annual fees by card</div>
+    <div id="fee-table"></div>
   </div>
 
   <hr class="divider" style="margin:28px 0">
@@ -3084,6 +3099,120 @@ function exportICal(){
 function icalNow(){const d=new Date();return d.toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';}
 
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// PAYOFF ENGINE (verified against a known amortization example) + UI
+// ═══════════════════════════════════════════════════════
+// Simulate paying ONE card to zero. mode: {type:'fixed',payment} | {type:'min',pct,floor}
+function simPayoff(balance,apr,mode){
+  const r=(apr||0)/100/12; let bal=balance,months=0,interest=0,paid=0;
+  if(bal<=0)return{months:0,interest:0,paid:0,never:false};
+  while(bal>0.005&&months<1201){
+    const int=bal*r; let pay=mode.type==='fixed'?mode.payment:Math.max(mode.floor,bal*mode.pct/100);
+    pay=Math.min(pay,bal+int);
+    if(pay<=int+1e-9)return{months:Infinity,interest:Infinity,paid:Infinity,never:true};
+    bal=bal+int-pay; interest+=int; paid+=pay; months++;
+  }
+  return{months,interest:Math.round(interest),paid:Math.round(paid),never:false};
+}
+function reqPayment(balance,apr,n){const r=(apr||0)/100/12; if(n<=0)return balance; if(r===0)return balance/n; return balance*r/(1-Math.pow(1+r,-n));}
+function simStrategy(cardsIn,extra,method,opt){
+  const{pct,floor}=opt; const cs=cardsIn.map(c=>({name:c.name,bal:c.balance,r:(c.apr||0)/100/12,apr:c.apr||0}));
+  const B=cs.reduce((s,c)=>s+Math.max(floor,c.bal*pct/100),0)+extra; let months=0,interest=0; const order=[];
+  while(cs.some(c=>c.bal>0.005)&&months<1201){
+    cs.forEach(c=>{if(c.bal>0.005){const i=c.bal*c.r;c.bal+=i;interest+=i;}});
+    let pool=B; cs.forEach(c=>{if(c.bal>0.005){const m=Math.min(Math.max(floor,c.bal*pct/100),c.bal);c.bal-=m;pool-=m;}}); if(pool<0)pool=0;
+    const active=cs.filter(c=>c.bal>0.005).sort((a,b)=>method==='avalanche'?b.apr-a.apr:a.bal-b.bal);
+    for(const c of active){if(pool<=0.005)break;const p=Math.min(pool,c.bal);c.bal-=p;pool-=p;}
+    months++; cs.forEach(c=>{if(c.bal<=0.005&&!order.find(o=>o.name===c.name))order.push({name:c.name,month:months});});
+  }
+  return{months,interest:Math.round(interest),order,never:cs.some(c=>c.bal>0.005)};
+}
+function minOnlyAll(cardsIn,opt){let mx=0,ti=0,nv=false;cardsIn.forEach(c=>{const r=simPayoff(c.balance,c.apr,{type:'min',pct:opt.pct,floor:opt.floor});if(r.never)nv=true;else{mx=Math.max(mx,r.months);ti+=r.interest;}});return{months:mx,interest:ti,never:nv};}
+function _fmtMo(m){if(m===Infinity||m>1200)return'never';const y=Math.floor(m/12),mo=m%12;return y>0?(y+'y '+mo+'m'):(mo+' mo');}
+
+var _pf={cardId:null,pct:2,floor:25,pay:0,target:24,extra:200,method:'avalanche'};
+function pfSet(k,v){_pf[k]=parseFloat(v)||0; pfRecalc();}
+function pfSetCard(v){_pf.cardId=v; _pf.pay=0; renderPayoff();}
+function pfSetMethod(v){_pf.method=v; renderPayoffStrategy();}
+function pfSaveApr(cardId,v){const c=cards.find(x=>x.id===cardId); if(!c)return; const a=parseFloat(v); if(!(a>0))return; c.apr=a; save(); const sb=getSupabase(); if(sb)sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(()=>{}); renderPayoff();}
+function pfRecalc(){pfRecalcPerCard();pfRecalcStrategy();}
+function renderPayoff(){renderPayoffPerCard();renderPayoffStrategy();}
+
+function renderPayoffPerCard(){
+  const el=document.getElementById('payoff-percard-body'); if(!el)return;
+  const active=cards.filter(c=>c.status!=='closed'&&c.balance>0);
+  if(!active.length){el.innerHTML='<div class="pf-empty">No balances to pay off — every card is at $0. 🎉</div>';return;}
+  if(!_pf.cardId||!active.find(c=>c.id===_pf.cardId))_pf.cardId=active[0].id;
+  const c=active.find(x=>x.id===_pf.cardId);
+  const opts=active.map(x=>`<option value="${x.id}"${x.id===_pf.cardId?' selected':''}>${esc(x.name)} ·· ${esc(x.last4||'')} — ${fmt(x.balance)}</option>`).join('');
+  let html=`<div class="pf-controls">
+    <label class="pf-field" style="flex:2"><span>Card</span><select onchange="pfSetCard(this.value)">${opts}</select></label>
+    <label class="pf-field"><span>APR %</span><input type="number" inputmode="decimal" step="0.01" value="${c.apr||''}" placeholder="e.g. 22.99" onchange="pfSaveApr('${c.id}',this.value)"></label>
+    <label class="pf-field"><span>Min %</span><input type="number" inputmode="decimal" step="0.5" value="${_pf.pct}" oninput="pfSet('pct',this.value)"></label>
+    <label class="pf-field"><span>Min floor $</span><input type="number" inputmode="numeric" value="${_pf.floor}" oninput="pfSet('floor',this.value)"></label>
+  </div>`;
+  if(!(c.apr>0)){el.innerHTML=html+`<div class="pf-apr-prompt">Enter this card's <strong>APR</strong> above to calculate — we won't guess it. Find it on your statement or issuer app.</div>`;return;}
+  const minNow=Math.max(_pf.floor,c.balance*_pf.pct/100);
+  if(!_pf.pay||_pf.pay<minNow)_pf.pay=Math.max(Math.ceil(minNow),Math.round(reqPayment(c.balance,c.apr,24)));
+  const payMax=Math.max(Math.ceil(minNow*4),Math.ceil(c.balance/6));
+  html+=`<div class="pf-sliderrow">
+    <label class="pf-field" style="flex:1"><span>Monthly payment: <strong id="pf-payval">${fmt(_pf.pay)}</strong></span><input type="range" min="${Math.ceil(minNow)}" max="${payMax}" step="10" value="${_pf.pay}" oninput="document.getElementById('pf-payval').textContent='$'+(+this.value).toLocaleString();pfSet('pay',this.value)"></label>
+    <label class="pf-field"><span>…or finish in (months)</span><input type="number" inputmode="numeric" min="1" value="${_pf.target}" oninput="pfSet('target',this.value)"></label>
+  </div><div id="pf-pc-result" style="margin-top:14px"></div>`;
+  el.innerHTML=html; pfRecalcPerCard();
+}
+function pfRecalcPerCard(){
+  const c=cards.find(x=>x.id===_pf.cardId); const box=document.getElementById('pf-pc-result'); if(!c||!box||!(c.apr>0))return;
+  const intMo=c.balance*c.apr/100/12;
+  const mo=simPayoff(c.balance,c.apr,{type:'min',pct:_pf.pct,floor:_pf.floor});
+  const pay=simPayoff(c.balance,c.apr,{type:'fixed',payment:_pf.pay});
+  const need=reqPayment(c.balance,c.apr,Math.max(1,Math.round(_pf.target)));
+  const minLine=mo.never
+    ?`<div class="pf-scary">⚠ At the minimum (greater of ${_pf.pct}% or ${fmt(_pf.floor)}) the payment never covers the ${fmt(intMo)}/mo interest — <strong>this balance never pays off and keeps growing</strong>. You must pay more than ${fmt(intMo)}/mo.</div>`
+    :`<div class="pf-scary">Paying <strong>only the minimum</strong> (greater of ${_pf.pct}% or ${fmt(_pf.floor)}, shrinking as the balance drops): <strong>${_fmtMo(mo.months)}</strong> to clear and <strong>${fmt(mo.interest)}</strong> in interest — ${fmt(mo.paid)} paid on a ${fmt(c.balance)} balance.</div>`;
+  const payLine=pay.never
+    ?`<div class="pf-row">At ${fmt(_pf.pay)}/mo the balance still grows — raise it above the ${fmt(intMo)}/mo interest.</div>`
+    :`<div class="pf-good"><strong>${fmt(_pf.pay)}/mo</strong> clears it in <strong>${_fmtMo(pay.months)}</strong> with <strong>${fmt(pay.interest)}</strong> interest.${!mo.never?` That's <strong>${fmt(Math.max(0,mo.interest-pay.interest))}</strong> saved and <strong>${_fmtMo(mo.months)} → ${_fmtMo(pay.months)}</strong> vs minimum-only.`:''}</div>`;
+  const targetLine=`<div class="pf-row">To clear this card in <strong>${Math.max(1,Math.round(_pf.target))} months</strong>, pay <strong>${fmt(need)}/mo</strong>.</div>`;
+  box.innerHTML=minLine+payLine+targetLine+`<div class="pf-note">${c.apr}% APR compounded monthly, interest on the full balance, payment applied at month-end. Estimates — your issuer's exact terms vary.</div>`;
+}
+function renderPayoffStrategy(){
+  const el=document.getElementById('payoff-strategy-body'); if(!el)return;
+  const active=cards.filter(c=>c.status!=='closed'&&c.balance>0);
+  if(!active.length){el.innerHTML='<div class="pf-empty">No balances across your cards — nothing to strategize. 🎉</div>';return;}
+  const missing=active.filter(c=>!(c.apr>0));
+  if(missing.length){
+    el.innerHTML=`<div class="pf-apr-prompt">This needs every card's <strong>APR</strong> (Plaid doesn't supply it). Enter the missing ones — we won't guess:</div>`+
+      missing.map(c=>`<label class="pf-field" style="margin-bottom:8px;flex-direction:row;align-items:center;gap:10px"><span style="flex:1">${esc(c.name)} ·· ${esc(c.last4||'')}</span><input type="number" inputmode="decimal" step="0.01" placeholder="APR % — e.g. 21.99" style="width:150px" onchange="pfSaveApr('${c.id}',this.value)"></label>`).join('');
+    return;
+  }
+  const extraMax=Math.max(1000,Math.ceil(active.reduce((s,c)=>s+c.balance,0)/12/50)*50);
+  el.innerHTML=`<div class="pf-controls">
+    <div class="pf-toggle"><button class="${_pf.method==='avalanche'?'on':''}" onclick="pfSetMethod('avalanche')">Avalanche</button><button class="${_pf.method==='snowball'?'on':''}" onclick="pfSetMethod('snowball')">Snowball</button></div>
+    <label class="pf-field" style="flex:1"><span>Extra per month beyond minimums: <strong id="pf-extraval">${fmt(_pf.extra)}</strong></span><input type="range" min="0" max="${extraMax}" step="25" value="${_pf.extra}" oninput="document.getElementById('pf-extraval').textContent='$'+(+this.value).toLocaleString();pfSet('extra',this.value)"></label>
+  </div><div id="pf-strat-result" style="margin-top:14px"></div>`;
+  pfRecalcStrategy();
+}
+function pfRecalcStrategy(){
+  const box=document.getElementById('pf-strat-result'); if(!box)return;
+  const active=cards.filter(c=>c.status!=='closed'&&c.balance>0&&c.apr>0);
+  if(!active.length)return;
+  const opt={pct:_pf.pct,floor:_pf.floor};
+  const base=minOnlyAll(active,opt), av=simStrategy(active,_pf.extra,'avalanche',opt), sn=simStrategy(active,_pf.extra,'snowball',opt);
+  const chosen=_pf.method==='avalanche'?av:sn, other=_pf.method==='avalanche'?sn:av;
+  const sched=chosen.order.map((o,i)=>{const c=active.find(x=>x.name===o.name);return `<div class="payoff-row"><span><strong>${i+1}.</strong> ${esc(o.name)}<br><span style="color:var(--text3);font-size:11px">${c?c.apr+'% APR · '+fmt(c.balance):''}</span></span><span style="text-align:right;font-weight:600">cleared month ${o.month}</span></div>`;}).join('')||'<div class="pf-row">With this budget the debt doesn\'t fully clear — add more extra per month.</div>';
+  const diffInt=other.interest-chosen.interest, diffMo=other.months-chosen.months;
+  const cmp=diffInt>0?`This (<strong>${_pf.method}</strong>) saves <strong>${fmt(diffInt)}</strong>${diffMo>0?` and ${diffMo} months`:''} vs ${_pf.method==='avalanche'?'snowball':'avalanche'}.`
+    :diffInt<0?`${_pf.method==='avalanche'?'Snowball':'Avalanche'} would cost <strong>${fmt(-diffInt)}</strong> more — but ${_pf.method==='avalanche'?'avalanche is mathematically cheapest':'snowball clears whole cards sooner for motivation'}.`
+    :`Avalanche and snowball tie for these cards.`;
+  box.innerHTML=`<div class="pf-good"><strong>${_pf.method==='avalanche'?'Avalanche (highest APR first)':'Snowball (smallest balance first)'}</strong> — attack order: ${chosen.order.map(o=>esc(o.name)).join(' → ')||'—'}.<br>Debt-free in <strong>${_fmtMo(chosen.months)}</strong> with <strong>${fmt(chosen.interest)}</strong> total interest.</div>
+    <div class="pf-row">${base.never?'Paying only minimums, at least one card never clears — the extra is what makes payoff possible.':`Versus <strong>minimums only</strong> (${_fmtMo(base.months)}, ${fmt(base.interest)} interest): you save <strong>${fmt(Math.max(0,base.interest-chosen.interest))}</strong> and finish <strong>${_fmtMo(base.months)} → ${_fmtMo(chosen.months)}</strong>.`}</div>
+    <div class="pf-row">${cmp}</div>
+    <div class="sec-title" style="margin:16px 0 8px">Attack schedule</div>${sched}
+    <div class="pf-note">Fixed monthly budget = current minimums + your extra, held constant; freed minimums roll to the next target. Extra applied at month-end. Estimates — issuer terms vary.</div>`;
+}
+
+// ═══════════════════════════════════════════════════════
 // RENDER: REPORTS
 // ═══════════════════════════════════════════════════════
 function renderReports(){
@@ -3115,28 +3244,8 @@ function renderReports(){
   const ctx2=document.getElementById('chart-bal')?.getContext('2d');
   if(ctx2){chartInstances['chart-bal']=new Chart(ctx2,{type:'doughnut',data:{labels:actCards.map(c=>c.name),datasets:[{data:actCards.map(c=>c.balance),backgroundColor:actCards.map((_,i)=>DONUT_COLORS[i%DONUT_COLORS.length]),borderWidth:2,borderColor:'#fff',hoverOffset:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{color:tickColor,font:{size:11},padding:12,boxWidth:10,borderRadius:4}},tooltip:{backgroundColor:'#1B2040',titleColor:'#fff',bodyColor:'#8892B0',padding:10,cornerRadius:8}}}});}
 
-  // Balance trend line — warm theme
-  const months=[...new Set(balanceHistory.map(h=>h.date))].sort().slice(-12);
-  const minPay=ac.reduce((s,c)=>s+c.minPayment,0);
-  const ctx3=document.getElementById('chart-trend')?.getContext('2d');
-  if(ctx3){
-    const totals=months.map(m=>balanceHistory.filter(h=>h.date===m).reduce((s,h)=>s+h.balance,0));
-    const minPayoff=[...totals];const accelPayoff=[...totals];
-    for(let i=1;i<6;i++){
-      minPayoff.push(Math.max(0,minPayoff[minPayoff.length-1]-minPay));
-      accelPayoff.push(Math.max(0,accelPayoff[accelPayoff.length-1]-minPay*2.5));
-    }
-    const futureMonths=[];const now=new Date(TODAY);
-    for(let i=0;i<6;i++){now.setMonth(now.getMonth()+1);futureMonths.push(now.toISOString().slice(0,7));}
-    const allMonths=[...months,...futureMonths];
-    chartInstances['chart-trend']=new Chart(ctx3,{type:'line',data:{labels:allMonths.map(m=>{const[y,mo]=m.split('-');return new Date(y,mo-1).toLocaleDateString('en-US',{month:'short',year:'2-digit'})}),datasets:[{label:'At minimum payments',data:[...totals,...minPayoff.slice(1)],borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,.06)',tension:.4,fill:true,pointRadius:3,pointBackgroundColor:'#DC2626'},{label:'Accelerated (2.5× min)',data:[...Array(months.length).fill(null),...accelPayoff],borderColor:'#16A34A',backgroundColor:'rgba(22,163,74,.06)',tension:.4,fill:true,borderDash:[5,3],pointRadius:3,pointBackgroundColor:'#16A34A'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:tickColor,font:{size:11},padding:16,boxWidth:20}},tooltip:{backgroundColor:'#1B2040',titleColor:'#fff',bodyColor:'#8892B0',padding:10,cornerRadius:8}},scales:{x:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor}},y:{ticks:{color:tickColor,font:{size:11},callback:v=>'$'+Math.round(v/1000)+'k'},grid:{color:gridColor}}}}});}
-
-  // Payoff table
-  document.getElementById('payoff-table').innerHTML=ac.filter(c=>c.balance>0&&c.apr>0).sort((a,b)=>b.apr-a.apr).map(c=>{
-    const monthlyRate=c.apr/100/12; const months=monthlyRate>0?Math.ceil(-Math.log(1-c.balance*monthlyRate/c.minPayment)/Math.log(1+monthlyRate)):0;
-    const yrs=Math.floor(months/12),mos=months%12;
-    return`<div class="payoff-row"><span>${c.name}<br><span style="color:var(--text3);font-size:11px">${c.apr}% APR · ${fmt(c.balance)}</span></span><span style="text-align:right;font-weight:600">${months>1200||months<=0?'Long time':yrs>0?yrs+'y '+mos+'m':mos+'mo'}</span></div>`;
-  }).join('')||'<div style="color:var(--text3);font-size:12px;padding:8px 0">No APR data available. Add APR to cards to see payoff projections.</div>';
+  // Payoff calculator + debt-payoff strategy (replaces the old flat/no-APR projection)
+  renderPayoff();
 
   // Fee table
   document.getElementById('fee-table').innerHTML=cards.filter(c=>c.annualFee>0).sort((a,b)=>b.annualFee-a.annualFee).map(c=>{
@@ -3414,10 +3523,44 @@ function setFaceMode(cardId,mode){
 // Explicit delete (only if the user really wants the photo gone).
 function removeCardImage(cardId){
   const c=cards.find(x=>x.id===cardId); if(!c) return;
-  delete c.faceImage; delete c.imgSkin; delete c.faceMode;
+  delete c.faceImage; delete c.imgSkin; delete c.faceMode; delete c.artSubmitted;
   save(); renderCards(); renderDashboard(); _cardSyncRow(c);
   const over=document.querySelector('.overlay'); if(over)over.remove(); showDetail(cardId);
   showToast('Photo removed');
+}
+
+// ── Crowd-sourced card art (moderated: approved-only is ever served) ──
+let _sharedArt={};             // productKey -> approved image data URL
+let _sharedArtLoaded=false;
+function productKey(c){
+  if(!c) return '';
+  const [k]=matchTemplate(c);
+  if(k) return k;
+  return (c.issuerId||'x')+'|'+((c.name||'').toLowerCase().replace(/[®℠™]/g,'').replace(/[^a-z0-9]+/g,' ').trim());
+}
+function sharedArtFor(c){ return _sharedArt[productKey(c)]||null; }
+function loadSharedArt(){
+  try{
+    if(typeof cards==='undefined'||!cards||!cards.length) return;
+    const keys=Array.from(new Set(cards.map(productKey).filter(Boolean)));
+    if(!keys.length) return;
+    fetch('/.netlify/functions/card-art?keys='+encodeURIComponent(keys.join(',')),{headers:getAuthHeaders()})
+      .then(function(r){return r.ok?r.json():{art:{}};})
+      .then(function(j){ if(j&&j.art){ _sharedArt=j.art; try{renderCards();renderDashboard();}catch(e){} } })
+      .catch(function(){});
+  }catch(e){}
+}
+function submitCardArt(cardId){
+  const c=cards.find(function(x){return x.id===cardId;}); if(!c) return;
+  if(!c.faceImage){ showToast('Upload a photo first, then share it'); return; }
+  if(!confirm('Share this image with everyone who has this card?\n\nIt is reviewed before anyone else can see it. Make sure the full card number and CVV are NOT visible in the image.')) return;
+  fetch('/.netlify/functions/card-art',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},getAuthHeaders()),
+    body:JSON.stringify({action:'submit',productKey:productKey(c),issuer:c.issuerId,productName:c.name,image:c.faceImage,confirmed:true})})
+    .then(function(r){return r.json();}).then(function(j){
+      if(j&&j.ok){ c.artSubmitted=true; save(); _cardSyncRow(c); const o=document.querySelector('.overlay'); if(o)o.remove(); showDetail(cardId); showToast('Submitted for review ✓ — thanks for contributing'); }
+      else if(j&&j.missing_table){ showToast('Shared library not set up yet — admin needs to run the SQL.'); }
+      else showToast('Could not submit — try again');
+    }).catch(function(){showToast('Network error');});
 }
 
 // ═══════════════════════════════════════════════════════
