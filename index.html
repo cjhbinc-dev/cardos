@@ -158,6 +158,12 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 
 .page{display:none;padding:28px 32px;flex:1}
 .page.active{display:block}
+/* Desktop composition: centered 1200px content container (not a scaled mobile layout).
+   Topbar stays a full-width sticky bar; its inner content is capped to match. */
+@media(min-width:1000px){
+  .page.active{max-width:1200px;width:100%;margin-left:auto;margin-right:auto}
+  .topbar{max-width:1200px;width:100%;margin-left:auto;margin-right:auto;padding-left:32px;padding-right:32px}
+}
 
 /* ── Stat cards ── */
 .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:24px}
@@ -1153,10 +1159,13 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .pat-waves{background:repeating-radial-gradient(circle at 85% 15%,transparent 0 11px,rgba(255,255,255,.08) 11px 13px)}
 .pat-carbon{background:linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%),linear-gradient(45deg,rgba(255,255,255,.06) 25%,transparent 25% 75%,rgba(255,255,255,.06) 75%);background-size:9px 9px;background-position:0 0,4.5px 4.5px}
 .pat-circuit{background:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:24px 24px}
-.pat-metal{background:repeating-linear-gradient(93deg,rgba(255,255,255,.10) 0 1px,transparent 1px 3px);opacity:.4}
+.pat-metal{background:repeating-linear-gradient(0deg,rgba(255,255,255,.06) 0 1px,rgba(0,0,0,.035) 1px 2px),linear-gradient(118deg,rgba(255,255,255,.4) 0%,rgba(255,255,255,0) 24%,rgba(0,0,0,.06) 44%,rgba(255,255,255,.16) 60%,rgba(255,255,255,0) 82%);opacity:.6;mix-blend-mode:soft-light}
 .pat-topo{background:repeating-radial-gradient(ellipse 65% 42% at 38% 62%,transparent 0 9px,rgba(255,255,255,.07) 9px 10px)}
 .pat-hex{background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.08) 1.4px,transparent 1.6px);background-size:16px 28px}
-.pat-chrome{opacity:.9;mix-blend-mode:overlay;background:linear-gradient(100deg,rgba(255,255,255,.75) 0%,rgba(120,130,145,.05) 15%,rgba(35,42,54,.4) 33%,rgba(255,255,255,.65) 50%,rgba(35,42,54,.35) 67%,rgba(120,130,145,.05) 85%,rgba(255,255,255,.7) 100%)}
+.pat-chrome{opacity:.72;mix-blend-mode:soft-light;background:repeating-linear-gradient(0deg,rgba(255,255,255,.07) 0 1px,rgba(0,0,0,.05) 1px 2px),linear-gradient(118deg,rgba(255,255,255,.5) 0%,rgba(255,255,255,0) 20%,rgba(0,0,0,.08) 40%,rgba(255,255,255,.22) 58%,rgba(255,255,255,0) 84%)}
+/* User-uploaded card photo face */
+.rcard-photo{background-size:cover;background-position:center;background-repeat:no-repeat}
+.rc-photo-scrim{position:absolute;inset:0;z-index:1;pointer-events:none;border-radius:inherit;background:linear-gradient(180deg,rgba(0,0,0,.12) 0%,transparent 32%,transparent 52%,rgba(0,0,0,.68) 100%)}
 .rc-holo-foil{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.28) 46%,rgba(180,220,255,.14) 50%,transparent 60%);opacity:0;transform:translateX(-20%);transition:opacity .4s}
 .rcard:hover .rc-holo-foil{opacity:.7;transform:translateX(20%);transition:opacity .5s,transform .8s cubic-bezier(.16,1,.3,1)}
 @keyframes holoSpin{to{transform:rotate(360deg)}}
@@ -2784,9 +2793,20 @@ function cardVisual(c){
       </div>
       <div class="rc-back-cta">Tap to flip back →</div>`;
   }
-  return`<div class="rcard" data-tilt tabindex="0" onclick="flipCard(event)" onkeydown="if(event.key==='Enter')flipCard(event)" title="Tap to flip">
-    <div class="rcard-flip">
-      <div class="rcard-face rcard-front" style="--b1:${b1};--b2:${b2};--ctext:${ctext}">
+  const memberTxt=c.status!=='active'?(c.status==='sockdrawer'?'Sock drawer':'Closed'):'Member';
+  let front;
+  if(c.faceImage){
+    // User-uploaded card photo on the front — scrim keeps the overlaid balance legible.
+    front=`<div class="rcard-face rcard-front rcard-photo" style="background-image:url('${c.faceImage}')">
+      <div class="rc-photo-scrim"></div>
+      <div class="rc-bottom" style="z-index:2;color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.75)">
+        <div><div class="rc-name">${esc(c.name)}</div><div class="rc-thru" style="color:rgba(255,255,255,.75)">${memberTxt}</div></div>
+        <div class="rc-bal"><div class="rc-bal-lbl" style="color:rgba(255,255,255,.75)">Balance</div><div class="rc-bal-val">${fmt(c.balance)}</div></div>
+      </div>
+      <div class="rc-flip-hint" style="color:rgba(255,255,255,.85);z-index:2">↻ flip</div>
+    </div>`;
+  } else {
+    front=`<div class="rcard-face rcard-front" style="--b1:${b1};--b2:${b2};--ctext:${ctext}">
         <div class="rc-pattern ${skin.pattern}"></div>
         <div class="rc-holo-foil"></div>
         <div class="rc-accent" style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${skin.accent};box-shadow:1px 0 14px ${skin.accent}88;border-radius:16px 0 0 16px"></div>
@@ -2795,11 +2815,15 @@ function cardVisual(c){
         <div class="rc-wifi" style="color:${ctext}">${_wifiSVG}</div>
         <div class="rc-number">${num}</div>
         <div class="rc-bottom">
-          <div><div class="rc-name">${esc(c.name)}</div><div class="rc-thru">${c.status!=='active'?(c.status==='sockdrawer'?'Sock drawer':'Closed'):'Member'}</div></div>
+          <div><div class="rc-name">${esc(c.name)}</div><div class="rc-thru">${memberTxt}</div></div>
           <div class="rc-bal"><div class="rc-bal-lbl">Balance</div><div class="rc-bal-val">${fmt(c.balance)}</div></div>
         </div>
         <div class="rc-flip-hint">↻ flip</div>
-      </div>
+      </div>`;
+  }
+  return`<div class="rcard" data-tilt tabindex="0" onclick="flipCard(event)" onkeydown="if(event.key==='Enter')flipCard(event)" title="Tap to flip">
+    <div class="rcard-flip">
+      ${front}
       <div class="rcard-face rcard-back" style="--b1:${b2};--b2:${shadeHex(face,light?-6:-58)};--ctext:${ctext}">${back}</div>
     </div>
   </div>`;
@@ -3311,11 +3335,52 @@ function showDetail(cid){
     ${cardOffers.length?`<div class="detail-section"><div class="sec-title">Active Amex offers (${cardOffers.length})</div>${cardOffers.map(o=>`${dr(o.merchant,'<span style="color:var(--green);font-weight:600">'+fmt(o.savings)+'</span>')}`).join('')}</div>`:''}
     ${c.notes?`<div class="detail-section"><div class="sec-title">Notes</div><div class="notes-box">${c.notes}</div></div>`:''}
     ${c.rewardsNotes?`<div class="detail-section"><div class="sec-title">Rewards notes</div><div class="notes-box">${c.rewardsNotes}</div></div>`:''}
+    <div class="detail-section"><div class="sec-title">Card image</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <label class="btn btn-sm" style="cursor:pointer;margin:0">📷 ${c.faceImage?'Replace photo':'Upload a photo of this card'}<input type="file" accept="image/*" style="display:none" onchange="if(this.files&&this.files[0])setCardImage('${c.id}',this.files[0])"></label>
+        ${c.faceImage?`<button class="btn btn-sm" onclick="clearCardImage('${c.id}')">Use generated skin</button>`:''}
+        <span style="font-size:11px;color:var(--text3);flex:1;min-width:160px">Your photo becomes the card face (resized, stored to your account). The balance overlays on top.</span>
+      </div>
+    </div>
     <div class="modal-footer"><button class="btn btn-sm" onclick="this.closest('.overlay').remove()">Close</button><button class="btn btn-sm btn-primary" onclick="this.closest('.overlay').remove();openModal('card-edit','${c.id}')">Edit card</button></div>
   </div>`;
   document.getElementById('modal-root').appendChild(over);
 }
 function dr(l,v){return`<div class="detail-row"><span class="detail-lbl">${l}</span><span class="detail-val">${v}</span></div>`}
+
+// ── Per-card image: resize to card aspect, store on the card, sync ──
+function setCardImage(cardId,file){
+  const c=cards.find(x=>x.id===cardId); if(!c||!file) return;
+  if(!/^image\//.test(file.type||'')){showToast('Please choose an image file');return;}
+  const rd=new FileReader();
+  rd.onload=function(e){
+    const img=new Image();
+    img.onload=function(){
+      try{
+        const W=680, H=Math.round(W/1.586); // credit-card aspect
+        const cv2=document.createElement('canvas'); cv2.width=W; cv2.height=H;
+        const ctx=cv2.getContext('2d');
+        const s=Math.max(W/img.width,H/img.height), dw=img.width*s, dh=img.height*s;
+        ctx.drawImage(img,(W-dw)/2,(H-dh)/2,dw,dh);
+        c.faceImage=cv2.toDataURL('image/jpeg',0.82);
+      }catch(err){showToast('Could not process that image');return;}
+      save(); renderCards(); renderDashboard();
+      const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(function(){});
+      document.querySelectorAll('.overlay').forEach(function(o){o.remove();});
+      showToast('Card image set ✓');
+    };
+    img.onerror=function(){showToast('Could not read that image');};
+    img.src=e.target.result;
+  };
+  rd.readAsDataURL(file);
+}
+function clearCardImage(cardId){
+  const c=cards.find(x=>x.id===cardId); if(!c) return;
+  delete c.faceImage; save(); renderCards(); renderDashboard();
+  const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(function(){});
+  document.querySelectorAll('.overlay').forEach(function(o){o.remove();});
+  showToast('Reverted to generated skin');
+}
 
 // ═══════════════════════════════════════════════════════
 // MODALS
