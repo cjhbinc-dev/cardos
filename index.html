@@ -2717,6 +2717,8 @@ const SKIN_POOL=[
 const PAT_POOL=['pat-guilloche','pat-waves','pat-mesh','pat-topo','pat-circuit','pat-hex','pat-carbon'];
 function hashStr(s){let h=0;for(let i=0;i<(s||'').length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
 function cardSkin(c){
+  // If a photo was uploaded, the generated skin echoes ITS colors.
+  if(c&&c.imgSkin&&c.imgSkin.b1){const i=c.imgSkin;return {b1:i.b1,b2:i.b2,pattern:i.pattern||'pat-metal',accent:i.accent||'#F0C24A',light:isLightColor(i.b1)};}
   const [key]=matchTemplate(c);
   let s=(key&&PRODUCT_SKIN[key])||null;
   if(!s){ const nm=(c.name||''); for(const pair of NAME_SKINS){ if(pair[0].test(nm)){ s=pair[1]; break; } } }
@@ -2795,7 +2797,7 @@ function cardVisual(c){
   }
   const memberTxt=c.status!=='active'?(c.status==='sockdrawer'?'Sock drawer':'Closed'):'Member';
   let front;
-  if(c.faceImage){
+  if(c.faceImage&&c.faceMode!=='generated'){
     // User-uploaded card photo on the front — scrim keeps the overlaid balance legible.
     front=`<div class="rcard-face rcard-front rcard-photo" style="background-image:url('${c.faceImage}')">
       <div class="rc-photo-scrim"></div>
@@ -3336,11 +3338,21 @@ function showDetail(cid){
     ${c.notes?`<div class="detail-section"><div class="sec-title">Notes</div><div class="notes-box">${c.notes}</div></div>`:''}
     ${c.rewardsNotes?`<div class="detail-section"><div class="sec-title">Rewards notes</div><div class="notes-box">${c.rewardsNotes}</div></div>`:''}
     <div class="detail-section"><div class="sec-title">Card image</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
-        <label class="btn btn-sm" style="cursor:pointer;margin:0">📷 ${c.faceImage?'Replace photo':'Upload a photo of this card'}<input type="file" accept="image/*" style="display:none" onchange="if(this.files&&this.files[0])setCardImage('${c.id}',this.files[0])"></label>
-        ${c.faceImage?`<button class="btn btn-sm" onclick="clearCardImage('${c.id}')">Use generated skin</button>`:''}
-        <span style="font-size:11px;color:var(--text3);flex:1;min-width:160px">Your photo becomes the card face (resized, stored to your account). The balance overlays on top.</span>
+      <div style="font-size:11.5px;color:var(--text2);line-height:1.65;margin-bottom:10px">
+        <strong>Where to get a photo of this card:</strong><br>
+        1. <strong>Your bank app</strong> — screenshot the card, crop to just the card (usually shows only the last 4).<br>
+        2. <strong>The issuer's site</strong> — search "${esc(c.name||'card')} card image" for a clean official shot.<br>
+        3. <strong>A photo of the card</strong> — shoot straight down in good light.<br>
+        <span style="color:var(--red)">Never upload an image showing the full number or CVV</span> — blur or cover them first. The image is stored to your account.
       </div>
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <label class="btn btn-sm btn-primary" style="cursor:pointer;margin:0">📷 ${c.faceImage?'Replace photo':'Upload photo'}<input type="file" accept="image/*" style="display:none" onchange="if(this.files&&this.files[0])setCardImage('${c.id}',this.files[0])"></label>
+        ${c.faceImage?(c.faceMode==='generated'
+          ?`<button class="btn btn-sm" onclick="setFaceMode('${c.id}','photo')">Show my photo</button>`
+          :`<button class="btn btn-sm" onclick="setFaceMode('${c.id}','generated')">Use generated skin</button>`):''}
+        ${c.faceImage?`<button class="btn btn-sm btn-danger" onclick="removeCardImage('${c.id}')">Remove photo</button>`:''}
+      </div>
+      ${c.faceImage?`<div style="font-size:11px;color:var(--text3);margin-top:7px">Showing: <strong>${c.faceMode==='generated'?'generated skin (matched to your photo colors)':'your photo'}</strong> — toggle any time, your photo stays saved.</div>`:''}
     </div>
     <div class="modal-footer"><button class="btn btn-sm" onclick="this.closest('.overlay').remove()">Close</button><button class="btn btn-sm btn-primary" onclick="this.closest('.overlay').remove();openModal('card-edit','${c.id}')">Edit card</button></div>
   </div>`;
@@ -3348,7 +3360,25 @@ function showDetail(cid){
 }
 function dr(l,v){return`<div class="detail-row"><span class="detail-lbl">${l}</span><span class="detail-val">${v}</span></div>`}
 
-// ── Per-card image: resize to card aspect, store on the card, sync ──
+// ── Per-card image: resize to card aspect, derive a matching skin, store, sync ──
+function _cardSyncRow(c){const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(function(){});}
+// Sample a downscaled copy of the photo to build a generated skin that echoes it.
+function _skinFromImage(img){
+  try{
+    const w=48,h=30,cs=document.createElement('canvas');cs.width=w;cs.height=h;
+    const x=cs.getContext('2d');x.drawImage(img,0,0,w,h);
+    const d=x.getImageData(0,0,w,h).data;
+    function avg(y0,y1){let r=0,g=0,b=0,n=0;for(let y=y0;y<y1;y++)for(let px=0;px<w;px++){const i=(y*w+px)*4;r+=d[i];g+=d[i+1];b+=d[i+2];n++;}return [r/n,g/n,b/n];}
+    const top=avg(0,Math.floor(h/2)), bot=avg(Math.floor(h/2),h);
+    const hex=function(c){return '#'+c.map(function(v){return Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0');}).join('');};
+    let b1=hex(top), b2=hex(bot);
+    if(b1.toLowerCase()===b2.toLowerCase())b2=shadeHex(b1,-34); // add depth if flat
+    // accent: the more saturated corner, brightened
+    const acc=(Math.abs(top[0]-top[2])+Math.abs(top[0]-top[1])) >= (Math.abs(bot[0]-bot[2])+Math.abs(bot[0]-bot[1])) ? top : bot;
+    const accent=hex([Math.min(255,acc[0]*1.25+20),Math.min(255,acc[1]*1.25+20),Math.min(255,acc[2]*1.25+20)]);
+    return {b1:b1,b2:b2,accent:accent,pattern:'pat-metal'};
+  }catch(e){return null;}
+}
 function setCardImage(cardId,file){
   const c=cards.find(x=>x.id===cardId); if(!c||!file) return;
   if(!/^image\//.test(file.type||'')){showToast('Please choose an image file');return;}
@@ -3363,23 +3393,31 @@ function setCardImage(cardId,file){
         const s=Math.max(W/img.width,H/img.height), dw=img.width*s, dh=img.height*s;
         ctx.drawImage(img,(W-dw)/2,(H-dh)/2,dw,dh);
         c.faceImage=cv2.toDataURL('image/jpeg',0.82);
+        c.imgSkin=_skinFromImage(img);   // generated fallback now matches the photo
+        c.faceMode='photo';
       }catch(err){showToast('Could not process that image');return;}
-      save(); renderCards(); renderDashboard();
-      const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(function(){});
+      save(); renderCards(); renderDashboard(); _cardSyncRow(c);
       document.querySelectorAll('.overlay').forEach(function(o){o.remove();});
-      showToast('Card image set ✓');
+      showToast('Card photo set ✓ — toggle photo/generated any time');
     };
     img.onerror=function(){showToast('Could not read that image');};
     img.src=e.target.result;
   };
   rd.readAsDataURL(file);
 }
-function clearCardImage(cardId){
+// Toggle WITHOUT deleting the photo, so users can switch back and forth.
+function setFaceMode(cardId,mode){
   const c=cards.find(x=>x.id===cardId); if(!c) return;
-  delete c.faceImage; save(); renderCards(); renderDashboard();
-  const sb=getSupabase(); if(sb) sb.from('cards').upsert({id:c.id,user_id:_currentUser?.id,data:c}).then(function(){});
-  document.querySelectorAll('.overlay').forEach(function(o){o.remove();});
-  showToast('Reverted to generated skin');
+  c.faceMode=mode; save(); renderCards(); renderDashboard(); _cardSyncRow(c);
+  const over=document.querySelector('.overlay'); if(over)over.remove(); showDetail(cardId); // refresh detail
+}
+// Explicit delete (only if the user really wants the photo gone).
+function removeCardImage(cardId){
+  const c=cards.find(x=>x.id===cardId); if(!c) return;
+  delete c.faceImage; delete c.imgSkin; delete c.faceMode;
+  save(); renderCards(); renderDashboard(); _cardSyncRow(c);
+  const over=document.querySelector('.overlay'); if(over)over.remove(); showDetail(cardId);
+  showToast('Photo removed');
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6082,6 +6120,27 @@ function computeAFOffset(cid, tmpl){
   return { used: Math.round(used), total: Math.round(total) };
 }
 
+// Dollar value of a card's credits that are unclaimed for the current period AND
+// whose window closes within `days` — the "use it or lose it" number. Only counts
+// periods with a concrete calendar deadline (monthly/quarterly/semiannual); annual
+// credits have an uncertain cardmember-year deadline, so they're excluded to stay honest.
+function cardExpiringSoon(card, tmpl, days){
+  if(!tmpl) return 0;
+  const now=TODAY, yr=now.getFullYear(), mo=now.getMonth()+1;
+  const thisMonth=now.toISOString().slice(0,7);
+  const dME=Math.round((new Date(yr,mo,0)-now)/86400000);
+  const q=Math.floor(now.getMonth()/3)+1, dQE=Math.round((new Date(yr,q*3,0)-now)/86400000);
+  const isH1=mo<=6, dHE=Math.round((new Date(yr,isH1?6:12,0)-now)/86400000);
+  let sum=0;
+  tmpl.benefits.forEach(ben=>{
+    const m=(getBU(card.id,ben.id).months)||{};
+    if(ben.type==='monthly'&&!m[thisMonth]&&dME<=days) sum+=(ben.monthlyValue||0);
+    else if(ben.type==='quarterly'&&!m[yr+'-Q'+q]&&dQE<=days) sum+=(ben.monthlyValue||(ben.value/4));
+    else if(ben.type==='semiannual'&&!m[yr+(isH1?'-H1':'-H2')]&&dHE<=days) sum+=(ben.value/2);
+  });
+  return Math.round(sum);
+}
+
 function buildBenefitAlerts(){
   const alerts=[]; const now=TODAY; const mo=now.getMonth()+1; const day=now.getDate(); const yr=now.getFullYear();
   const thisMonth = now.toISOString().slice(0,7);
@@ -6161,9 +6220,11 @@ function renderBenefits(){
 
 function renderBenCard(card){
   const[,tmpl]=matchTemplate(card); if(!tmpl)return'';
-  const{used}=computeAFOffset(card.id,tmpl);
+  const{used,total}=computeAFOffset(card.id,tmpl);
   const afPct=Math.min(100,Math.round((used/tmpl.annualFee)*100));
   const roiColor=afPct>=100?'var(--green)':afPct>=50?'var(--amber)':'var(--red)';
+  const netNow=used-tmpl.annualFee;                       // realized net position right now
+  const expSoon=cardExpiringSoon(card,tmpl,30);           // use-it-or-lose-it within 30 days
   const yr=TODAY.getFullYear(); const mo=TODAY.getMonth()+1; const isH1=mo<=6;
   const thisMonth=TODAY.toISOString().slice(0,7);
 
@@ -6217,11 +6278,14 @@ function renderBenCard(card){
       <div style="display:flex;align-items:center;gap:14px;margin-bottom:14px">
         ${issBadge(card.issuerId)}
         <div><div style="font-size:17px;font-weight:700;color:#fff">${card.name} <span style="color:#8892B0;font-weight:400;font-size:13px">••${card.last4}</span></div><div style="font-size:12px;color:#8892B0;margin-top:2px">${tmpl.name} · ${fmt(tmpl.annualFee)} annual fee · <a onclick="event.stopPropagation();showBenefitPicker([cards.find(x=>x.id==='${card.id}')])" style="color:var(--gold);cursor:pointer;text-decoration:underline">Change</a></div></div>
-        <div style="margin-left:auto;text-align:right"><div style="font-size:26px;font-weight:800;color:${roiColor}">${afPct}%</div><div style="font-size:11px;color:#8892B0">AF offset</div></div>
+        <div style="margin-left:auto;text-align:right"><div style="font-size:26px;font-weight:800;color:${roiColor}">${afPct}%</div><div style="font-size:11px;color:#8892B0">fee offset</div></div>
       </div>
-      <div style="font-size:13px;color:#C4C9E0;margin-bottom:6px">${fmt(used)} of ${fmt(tmpl.annualFee)} annual fee covered${afPct>=100?' — <strong style="color:#4ADE80">fully covered! 🎉</strong>':''}${used>tmpl.annualFee?` · <strong style="color:#4ADE80">net +${fmt(used-tmpl.annualFee)}</strong>`:''}</div>
+      <!-- LEAD with realized value: what's actually been claimed + net position right now -->
+      <div style="font-size:15px;color:#EAF0FF;font-weight:700;margin-bottom:6px">Used ${fmt(used)} of ${fmt(tmpl.annualFee)} fee · <span style="color:${netNow>=0?'#4ADE80':'#FF9A90'}">net ${netNow>=0?'+':'−'}${fmt(Math.abs(netNow))} right now</span></div>
       <div class="roi-meter"><div class="roi-fill" style="width:${afPct}%;background:${roiColor}"></div></div>
       <div style="display:flex;justify-content:space-between;font-size:11px;color:#8892B0;margin-top:3px"><span>$0</span><span>${afPct>=100?'Fee covered':'Need '+fmt(Math.max(0,tmpl.annualFee-used))+' more'}</span><span>${fmt(tmpl.annualFee)}</span></div>
+      ${expSoon>0?`<div style="margin-top:11px;padding:10px 13px;background:rgba(255,110,97,.14);border:1px solid rgba(255,110,97,.42);border-radius:9px;display:flex;align-items:center;gap:10px"><span style="font-size:17px">⏳</span><span style="font-size:14px;color:#FF9A90;font-weight:800">${fmt(expSoon)} expiring within 30 days</span><span style="font-size:12px;color:#C4C9E0">— use it before it's gone</span></div>`:''}
+      <div style="font-size:11px;color:#6B7BA6;margin-top:8px">Up to ${fmt(total)} in credits if every benefit is used — potential, not money in hand.</div>
       ${(tmpl.annualFee>0&&!card.annualFeeMonth)?`<div style="margin-top:12px;padding:10px 12px;background:rgba(232,178,58,.14);border:1px solid rgba(232,178,58,.35);border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span style="font-size:12px;color:#F0EEE9;flex:1">Add the month your annual fee posts (when you opened the card) to unlock fee alerts and the calendar.</span><select onchange="setCardFeeMonth('${card.id}',this.value)" style="font-size:12px;padding:5px 8px"><option value="">Fee month…</option>${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((m,i)=>`<option value="${i+1}">${m}</option>`).join('')}</select></div>`:''}
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
