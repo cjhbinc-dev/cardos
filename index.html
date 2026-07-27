@@ -4,14 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CardOS — Credit Card Manager</title>
+<link rel="icon" type="image/png" href="assets/cardos-logo-cardslot.png">
+<link rel="apple-touch-icon" href="assets/cardos-logo-cardslot.png">
+<meta name="theme-color" content="#070A13">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script src="https://cdn.plaid.com/link/v2/stable/link-initialize.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script>
-/* Cinematic dark is the default 2070 theme; light only if explicitly chosen. */
-if(localStorage.getItem('cardos_dark')!=='light')document.documentElement.setAttribute('data-theme','dark');
+/* Neon 2070 is the primary experience — always on. Light is session-only (a
+   reload always returns to neon) so no one gets stranded on the legacy theme. */
+document.documentElement.setAttribute('data-theme','dark');
 (function(){
   try{
     // If this is an auth callback (magic link / invite click), wipe any stale session so
@@ -120,6 +124,12 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 
 /* ── Sidebar ── */
 .sidebar{background:var(--side);border-right:1px solid var(--side-border);display:flex;flex-direction:column;align-items:center;padding:16px 0 12px;gap:2px;overflow:hidden}
+.brand{display:flex;align-items:center;gap:10px;width:100%;padding:2px 6px 4px 8px;margin-bottom:16px;flex-shrink:0}
+.brand-mark{width:34px;height:34px;border-radius:9px;flex-shrink:0;box-shadow:0 3px 12px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.05);animation:brandPulse 5s ease-in-out infinite}
+.brand-word{font-size:19px;font-weight:800;letter-spacing:-.5px;color:var(--cream);white-space:nowrap;line-height:1}
+.brand-word b{color:var(--gold);font-weight:800}
+@keyframes brandPulse{0%,100%{box-shadow:0 3px 12px rgba(0,0,0,.45),0 0 0 1px rgba(255,255,255,.05),0 0 0 rgba(240,194,74,0)}50%{box-shadow:0 3px 14px rgba(0,0,0,.5),0 0 0 1px rgba(240,194,74,.18),0 0 18px rgba(240,194,74,.22)}}
+@media(prefers-reduced-motion:reduce){.brand-mark{animation:none}}
 /* Logo — PLACEHOLDER. Real asset (cardos-logo-cardslot.png) goes here at 26px. */
 .logo{width:38px;height:38px;border-radius:10px;background:var(--ink);border:1.5px solid var(--gold);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:var(--gold);margin-bottom:20px;flex-shrink:0}
 .sidebar.expanded .logo{width:auto;height:auto;background:none;border:none;border-radius:0;color:var(--cream);font-size:19px;letter-spacing:-.5px}
@@ -308,7 +318,7 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
 #auth-gate{position:fixed;inset:0;z-index:9999;background:var(--bg);display:flex;align-items:center;justify-content:center}
 #auth-gate.hidden{display:none}
 .auth-box{width:380px;background:var(--bg2);border:1.5px solid var(--border);border-radius:20px;padding:44px 36px;text-align:center;box-shadow:var(--shadow-lg)}
-.auth-logo{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#6366F1,#8B5CF6);font-size:24px;font-weight:800;color:#fff;margin-bottom:20px;box-shadow:0 8px 20px rgba(99,102,241,.4)}
+.auth-logo{display:inline-block;width:72px;height:72px;border-radius:18px;margin-bottom:20px;box-shadow:0 10px 30px rgba(0,0,0,.45),0 0 28px rgba(240,194,74,.22),0 0 0 1px rgba(255,255,255,.06)}
 .auth-box h2{font-size:22px;font-weight:700;margin-bottom:6px;color:var(--text);letter-spacing:-.4px}
 .auth-box p{color:var(--text2);font-size:13px;margin-bottom:28px;line-height:1.6}
 .auth-input{text-align:left;font-size:14px;letter-spacing:0;margin-bottom:12px;background:var(--bg3)}
@@ -352,21 +362,21 @@ button{cursor:pointer;border:none;border-radius:var(--r);padding:8px 16px;font-w
   .layout{grid-template-columns:48px 1fr}
 }
 
-/* ══ CINEMATIC DARK — the primary "2070" theme (deep navy, glass, glow) ══ */
+/* ══ NEON CYBER — the primary "2070" theme (near-black, cyan/magenta neon) ══ */
 [data-theme="dark"]{
-  --bg:#070A13;           /* deep space, never pure black (OLED smear) */
-  --bg2:#0F1524;          /* elevated surface */
-  --bg3:#151C30;          /* inset */
-  --bg4:#1C2540;          /* hover */
-  --border:#212B45;       /* hairline */
-  --border2:#2E3A5C;
-  --text:#EAF0FF;         /* primary — high contrast */
-  --text2:#94A2C6;        /* secondary */
-  --text3:#5D6A93;        /* muted */
-  --ink:#EAF0FF;          /* headings/primary text → light in dark */
-  --accent:#3B6EF6;       /* electric primary CTA (takes light text) */
-  --accent2:#2E5AD6;
-  --accent-soft:rgba(59,110,246,.18);
+  --bg:#03060E;           /* near-black cyber base */
+  --bg2:#070E1A;          /* elevated surface */
+  --bg3:#0B1524;          /* inset */
+  --bg4:#122036;          /* hover */
+  --border:#123047;       /* cyan-tinted hairline */
+  --border2:#1C4A63;
+  --text:#DFF6FF;         /* primary — high contrast, cyan-white */
+  --text2:#8FB8CC;        /* secondary */
+  --text3:#5A7E92;        /* muted */
+  --ink:#EAFBFF;          /* headings/primary text → light in dark */
+  --accent:#00E6FF;       /* electric cyan */
+  --accent2:#00B4D8;
+  --accent-soft:rgba(0,230,255,.16);
   --gold:#F0C24A; --gold2:#E8B23A; --gold-bg:rgba(240,194,74,.14);
   --cream:#F2F5FF;        /* text on accent + active nav */
   --paper:#070A13; --surface:#0F1524;
@@ -881,17 +891,23 @@ body::before{content:'';position:fixed;inset:-20%;z-index:-2;pointer-events:none
   var(--bg);
   animation:auroraDrift 26s ease-in-out infinite alternate;}
 [data-theme="dark"] body::before{background:
-  radial-gradient(1000px 620px at 84% -10%, rgba(240,194,74,.16), transparent 60%),
-  radial-gradient(1100px 760px at -8% 110%, rgba(59,110,246,.20), transparent 58%),
-  radial-gradient(820px 560px at 58% 122%, rgba(53,227,160,.12), transparent 60%),
-  radial-gradient(700px 500px at 20% 30%, rgba(120,90,220,.10), transparent 62%),
+  radial-gradient(1000px 620px at 84% -10%, rgba(255,0,200,.14), transparent 60%),
+  radial-gradient(1100px 760px at -8% 110%, rgba(0,230,255,.18), transparent 58%),
+  radial-gradient(820px 560px at 58% 122%, rgba(0,230,255,.10), transparent 60%),
+  radial-gradient(700px 500px at 20% 30%, rgba(255,0,200,.08), transparent 62%),
   var(--bg);}
 body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opacity:.5;
   background-image:linear-gradient(rgba(120,140,190,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(120,140,190,.05) 1px,transparent 1px);
   background-size:56px 56px;-webkit-mask-image:radial-gradient(circle at 50% 40%,#000,transparent 78%);mask-image:radial-gradient(circle at 50% 40%,#000,transparent 78%);}
-[data-theme="dark"] body::after{background-image:linear-gradient(rgba(120,150,230,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(120,150,230,.06) 1px,transparent 1px)}
+/* Neon grid — cyan lattice with a masked vignette */
+[data-theme="dark"] body::after{background-image:linear-gradient(rgba(0,230,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(0,230,255,.07) 1px,transparent 1px);background-size:44px 44px}
+/* Scanline overlay — a third fixed layer for the CRT feel */
+[data-theme="dark"] body{position:relative}
+[data-theme="dark"] body>.scanlines{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.35;
+  background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 2px,rgba(0,0,0,.22) 2px 4px);animation:scanMove 9s linear infinite;mix-blend-mode:multiply}
+@keyframes scanMove{to{background-position:0 440px}}
 @keyframes auroraDrift{0%{transform:translate3d(0,0,0) scale(1)}100%{transform:translate3d(-2.5%,1.5%,0) scale(1.06)}}
-@media(prefers-reduced-motion:reduce){body::before{animation:none}}
+@media(prefers-reduced-motion:reduce){body::before{animation:none}[data-theme="dark"] body>.scanlines{animation:none}}
 
 /* ── Glass surfaces ── */
 .glass{background:rgba(251,250,247,.62);backdrop-filter:blur(18px) saturate(1.35);-webkit-backdrop-filter:blur(18px) saturate(1.35);border:1px solid rgba(255,255,255,.55);box-shadow:0 10px 34px rgba(22,35,63,.10),inset 0 1px 0 rgba(255,255,255,.6)}
@@ -909,6 +925,171 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 [data-theme="dark"] .btn-primary{box-shadow:0 6px 20px rgba(59,110,246,.4),0 0 0 1px rgba(120,150,230,.2)}
 [data-theme="dark"] .sidebar .nav-btn.active{box-shadow:inset 2px 0 0 var(--gold),0 0 22px rgba(240,194,74,.14)}
 [data-theme="dark"] .summary-owed-val{text-shadow:0 0 30px rgba(240,194,74,.25)}
+
+/* ══════════════════════════════════════════════════════════════════
+   2070 UI LAYER — futuristic chrome applied to every shared component,
+   so all modules (dashboard, transactions, calendar, reports, budgets,
+   admin, modals…) transform at once. Scoped to the dark default theme.
+   ══════════════════════════════════════════════════════════════════ */
+[data-theme="dark"]{--neon:#00E6FF;--neon2:#FF2EC8;--edge:rgba(0,230,255,.34)}
+[data-theme="dark"] body{-webkit-font-smoothing:antialiased}
+[data-theme="dark"]{font-feature-settings:'tnum'}
+[data-theme="dark"] body::after{opacity:.75}
+[data-theme="dark"] body>.scanlines{opacity:.5!important}
+
+/* ── Floating motion — panels & cards gently levitate (staggered) ── */
+@keyframes floaty{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+[data-theme="dark"] .dash-panel,[data-theme="dark"] .rcard-wrap,[data-theme="dark"] .attn-card,[data-theme="dark"] .stat{animation:floaty 7s ease-in-out infinite}
+[data-theme="dark"] .dash-panel:nth-child(2n),[data-theme="dark"] .rcard-wrap:nth-child(2n),[data-theme="dark"] .stat:nth-child(2n){animation-duration:8.5s;animation-delay:-2s}
+[data-theme="dark"] .dash-panel:nth-child(3n),[data-theme="dark"] .rcard-wrap:nth-child(3n){animation-duration:9.5s;animation-delay:-4s}
+[data-theme="dark"] .dash-panel:hover,[data-theme="dark"] .rcard-wrap:hover{animation-play-state:paused}
+
+/* ── Panels: cyber frame — cyan border, neon top line, HUD corner bracket ── */
+[data-theme="dark"] .dash-panel,[data-theme="dark"] .glass,[data-theme="dark"] .card-item,[data-theme="dark"] .stat,[data-theme="dark"] .kpi-card{position:relative;border-radius:10px!important;background:rgba(3,10,20,.8)!important;border:1.5px solid var(--edge)!important;box-shadow:0 0 30px rgba(0,230,255,.12),inset 0 0 34px rgba(0,230,255,.035)!important}
+[data-theme="dark"] .dash-panel::before,[data-theme="dark"] .glass::before,[data-theme="dark"] .stat::before,[data-theme="dark"] .card-item::before{content:'';position:absolute;left:12px;right:12px;top:0;height:2px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--neon),var(--neon2),transparent);box-shadow:0 0 10px var(--neon)}
+[data-theme="dark"] .dash-panel::after,[data-theme="dark"] .stat::after{content:'';position:absolute;right:8px;top:8px;width:13px;height:13px;border-top:2px solid var(--neon);border-right:2px solid var(--neon);opacity:.7;pointer-events:none;filter:drop-shadow(0 0 4px var(--neon))}
+[data-theme="dark"] .dash-panel,[data-theme="dark"] .stat,[data-theme="dark"] .card-item{transition:border-color .2s,box-shadow .25s}
+[data-theme="dark"] .dash-panel:hover,[data-theme="dark"] .stat:hover,[data-theme="dark"] .card-item:hover{border-color:var(--neon2)!important;box-shadow:0 0 40px rgba(255,46,200,.3),inset 0 0 30px rgba(0,230,255,.05)!important}
+
+/* ── Titles → terminal labels ── */
+[data-theme="dark"] .sec-title{color:var(--neon)!important;letter-spacing:.16em!important;position:relative;padding-left:16px;font-family:'JetBrains Mono',ui-monospace,monospace}
+[data-theme="dark"] .sec-title::before{content:'▸';position:absolute;left:0;top:0;color:var(--neon2);text-shadow:0 0 8px var(--neon2)}
+[data-theme="dark"] .dash-panel-title{color:#EAFBFF!important;letter-spacing:.3px;text-shadow:0 0 18px rgba(0,230,255,.4);font-family:'Space Grotesk','Inter',sans-serif}
+[data-theme="dark"] .dash-panel-title::before{content:'// ';color:var(--neon2);font-family:'JetBrains Mono',monospace;font-size:.85em;text-shadow:0 0 8px var(--neon2)}
+[data-theme="dark"] .dash-panel-sub{color:#5A7E92!important;font-family:'JetBrains Mono',monospace;font-size:10.5px!important;letter-spacing:.05em}
+/* Hero / summary number — huge glowing terminal readout */
+[data-theme="dark"] .summary-owed-val{font-family:'Space Grotesk','Inter',sans-serif;font-size:46px!important;color:#fff!important;text-shadow:0 0 18px rgba(0,230,255,.7),0 0 44px rgba(0,230,255,.35)!important;letter-spacing:-1px}
+[data-theme="dark"] .summary-owed-lbl,[data-theme="dark"] .summary-meta{font-family:'JetBrains Mono',monospace;letter-spacing:.04em}
+
+/* ── Topbar: neon HUD bar ── */
+[data-theme="dark"] .topbar{position:relative;background:rgba(3,8,16,.72)!important;border-bottom:1px solid var(--edge)!important}
+[data-theme="dark"] .topbar::after{content:'';position:absolute;left:0;right:0;bottom:0;height:1px;background:linear-gradient(90deg,transparent,var(--neon),var(--neon2),transparent)}
+[data-theme="dark"] .topbar-title{font-size:19px!important;font-weight:800!important;letter-spacing:.4px!important;color:#fff!important;text-shadow:0 0 14px rgba(0,230,255,.6),0 0 34px rgba(0,230,255,.35)}
+[data-theme="dark"] .topbar-title::before{content:'';display:inline-block;width:8px;height:8px;border-radius:50%;background:#39FF14;box-shadow:0 0 12px #39FF14;margin-right:9px;vertical-align:middle;animation:pipPulse 1.6s steps(1,end) infinite}
+@keyframes pipPulse{50%{opacity:.25}}
+
+/* ── Buttons: neon ── */
+.btn{transition:transform .15s,box-shadow .2s,border-color .15s,background .18s,color .15s}
+[data-theme="dark"] .btn{background:rgba(0,20,30,.55)!important;border:1px solid var(--edge)!important;color:#9FE8FF!important;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border-radius:8px}
+[data-theme="dark"] .btn:hover{border-color:var(--neon)!important;color:#fff!important;box-shadow:0 0 0 1px var(--neon),0 0 18px rgba(0,230,255,.3)!important;transform:translateY(-1px)}
+[data-theme="dark"] .btn-primary{background:linear-gradient(135deg,rgba(0,230,255,.16),rgba(255,46,200,.14))!important;border:1px solid var(--neon)!important;color:#EAFBFF!important;text-shadow:0 0 10px rgba(0,230,255,.6);box-shadow:0 0 22px rgba(0,230,255,.28),inset 0 0 18px rgba(0,230,255,.08)!important}
+[data-theme="dark"] .btn-primary:hover{border-color:var(--neon2)!important;transform:translateY(-1px);box-shadow:0 0 30px rgba(255,46,200,.45),inset 0 0 18px rgba(255,46,200,.1)!important}
+
+/* ── Inputs: neon focus ── */
+[data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:rgba(0,12,20,.6)!important;border:1px solid var(--edge)!important}
+[data-theme="dark"] input:focus,[data-theme="dark"] select:focus,[data-theme="dark"] textarea:focus{border-color:var(--neon)!important;box-shadow:0 0 0 2px rgba(0,230,255,.2),0 0 20px rgba(0,230,255,.2)!important}
+
+/* ── Sidebar nav: neon rail ── */
+[data-theme="dark"] .sidebar{background:linear-gradient(180deg,#04101c,#02040a)!important;border-right:1px solid var(--edge)!important}
+[data-theme="dark"] .nav-btn{border-radius:8px;transition:background .15s,color .15s,box-shadow .2s}
+[data-theme="dark"] .nav-btn:hover{background:rgba(0,230,255,.08)!important;color:#DFF6FF!important;box-shadow:inset 0 0 14px rgba(0,230,255,.12)}
+[data-theme="dark"] .sidebar .nav-btn.active{background:linear-gradient(90deg,rgba(0,230,255,.16),rgba(255,46,200,.05) 75%)!important;color:#fff!important;box-shadow:inset 2px 0 0 var(--neon2),0 0 22px rgba(0,230,255,.2)!important}
+[data-theme="dark"] .sidebar .nav-btn.active svg{filter:drop-shadow(0 0 6px var(--neon))}
+[data-theme="dark"] .nav-group-label{color:#4E7183!important;letter-spacing:.16em;font-family:'JetBrains Mono',monospace}
+
+/* ── Numbers glow ── */
+[data-theme="dark"] .stat-val,[data-theme="dark"] .kpi-val,[data-theme="dark"] .summary-owed-val{text-shadow:0 0 24px rgba(0,230,255,.3)!important}
+[data-theme="dark"] .badge{border:1px solid var(--edge)}
+
+/* ── Tables ── */
+[data-theme="dark"] table th{text-transform:uppercase;letter-spacing:.1em;font-size:11px;color:var(--neon);font-family:'JetBrains Mono',monospace}
+[data-theme="dark"] tbody tr{transition:background .12s}
+[data-theme="dark"] tbody tr:hover{background:rgba(0,230,255,.06)}
+
+/* ── Neon scrollbars + selection ── */
+[data-theme="dark"] ::-webkit-scrollbar{width:10px;height:10px}
+[data-theme="dark"] ::-webkit-scrollbar-track{background:transparent}
+[data-theme="dark"] ::-webkit-scrollbar-thumb{background:linear-gradient(#0a3a4a,#04202a);border-radius:8px;border:2px solid transparent;background-clip:padding-box;box-shadow:inset 0 0 6px rgba(0,230,255,.3)}
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover{background:#0d5568;background-clip:padding-box}
+[data-theme="dark"] ::selection{background:rgba(255,46,200,.35);color:#fff}
+@media(prefers-reduced-motion:reduce){[data-theme="dark"] .topbar-title::before{animation:none}
+  [data-theme="dark"] .dash-panel,[data-theme="dark"] .rcard-wrap,[data-theme="dark"] .attn-card,[data-theme="dark"] .stat{animation:none!important}}
+
+/* ══ Furry monster eyes (SVG) — galaxy irises, magenta ring, cursor-tracking ══ */
+.cyber-eyes{position:fixed;top:-20px;left:50%;transform:translateX(-50%);z-index:41;width:210px;pointer-events:none;
+  filter:drop-shadow(0 10px 22px rgba(90,30,180,.5)) drop-shadow(0 0 26px rgba(120,60,255,.4));
+  animation:eyesPop 1s cubic-bezier(.16,1.5,.3,1) both}
+@keyframes eyesPop{from{transform:translateX(-50%) translateY(-150px) scale(.4);opacity:0}to{transform:translateX(-50%) translateY(0) scale(1);opacity:1}}
+.eyes-svg{width:100%;height:auto;display:block;transform-origin:50% 60%;transition:transform .1s ease}
+.eyes-svg.blink{transform:scaleY(.08)}
+.iris-move{transition:transform .09s ease-out}
+@media(max-width:640px){.cyber-eyes{width:132px;top:-12px}}
+
+/* ══ Assistant chatbot (floating, answers from your real card data) ══ */
+.fab{position:fixed;right:22px;bottom:22px;z-index:60;width:60px;height:60px;border-radius:50%;
+  background:linear-gradient(135deg,#00E6FF,#FF2EC8);color:#02040a;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 26px rgba(0,230,255,.5),0 8px 24px rgba(0,0,0,.5);cursor:pointer;border:none;transition:transform .2s;animation:floaty 5s ease-in-out infinite}
+.fab:hover{transform:scale(1.08) translateY(-2px)}
+.fab svg{width:26px;height:26px}
+.chatbox{position:fixed;right:22px;bottom:94px;z-index:60;width:360px;max-width:calc(100vw - 44px);height:0;opacity:0;pointer-events:none;
+  background:rgba(4,12,22,.95);border:1px solid #00E6FF;border-radius:14px;overflow:hidden;
+  box-shadow:0 0 40px rgba(0,230,255,.25),0 20px 60px rgba(0,0,0,.6);transition:height .32s cubic-bezier(.16,1,.3,1),opacity .2s;display:flex;flex-direction:column}
+.chatbox.open{height:470px;opacity:1;pointer-events:auto}
+.chat-hd{padding:13px 16px;font-family:'JetBrains Mono',ui-monospace,monospace;font-size:12.5px;color:#00E6FF;letter-spacing:.08em;border-bottom:1px solid rgba(0,230,255,.2);display:flex;align-items:center;gap:8px}
+.chat-hd .d{width:8px;height:8px;border-radius:50%;background:#39FF14;box-shadow:0 0 8px #39FF14}
+.chat-hd b{color:#fff;font-family:'Inter',sans-serif}
+.chat-hd .x{margin-left:auto;cursor:pointer;color:#5A7E92;font-size:16px}
+.chat-body{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:10px}
+.msg{max-width:84%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.55}
+.msg.bot{align-self:flex-start;background:rgba(0,230,255,.1);border:1px solid rgba(0,230,255,.22);color:#dff6ff;border-bottom-left-radius:3px}
+.msg.me{align-self:flex-end;background:rgba(255,46,200,.14);border:1px solid rgba(255,46,200,.3);color:#ffe6f8;border-bottom-right-radius:3px}
+.chat-chips{display:flex;flex-wrap:wrap;gap:6px;padding:0 14px 10px}
+.chat-chip{font-size:11px;padding:5px 10px;border-radius:20px;background:rgba(0,230,255,.08);border:1px solid rgba(0,230,255,.25);color:#9fe8ff;cursor:pointer;transition:.15s}
+.chat-chip:hover{background:rgba(0,230,255,.18);color:#fff}
+.chat-input{display:flex;gap:8px;padding:12px;border-top:1px solid rgba(0,230,255,.2)}
+.chat-input input{flex:1}
+.msg.typing{display:flex;gap:4px;align-items:center;padding:12px 14px}
+.msg.typing span{width:6px;height:6px;border-radius:50%;background:#00E6FF;animation:typedot 1s infinite}
+.msg.typing span:nth-child(2){animation-delay:.15s}.msg.typing span:nth-child(3){animation-delay:.3s}
+@keyframes typedot{0%,60%,100%{opacity:.3;transform:translateY(0)}30%{opacity:1;transform:translateY(-3px)}}
+
+/* ══ One-time neon boot sweep ══ */
+.boot-sweep{position:fixed;inset:0;z-index:9998;pointer-events:none;height:38%;mix-blend-mode:screen;
+  background:linear-gradient(180deg,transparent,rgba(0,230,255,.45),rgba(255,46,200,.2),transparent);
+  animation:bootSweep 1.3s cubic-bezier(.5,0,.5,1) forwards}
+@keyframes bootSweep{0%{transform:translateY(-120%);opacity:.9}80%{opacity:.55}100%{transform:translateY(330%);opacity:0}}
+
+/* ══ Topbar SYSTEM STATUS HUD chip ══ */
+.sys-status{display:inline-flex;align-items:center;gap:7px;padding:5px 11px;border-radius:8px;font-family:'JetBrains Mono',ui-monospace,monospace;
+  font-size:10.5px;letter-spacing:.06em;background:rgba(0,20,30,.5);border:1px solid rgba(0,230,255,.25);color:#8fd8e8;white-space:nowrap}
+.sys-status .dot{width:7px;height:7px;border-radius:50%;background:#39FF14;box-shadow:0 0 8px #39FF14;animation:pipPulse 1.8s steps(1,end) infinite}
+.sys-status[data-state="warn"]{border-color:rgba(245,198,75,.4);color:#f5d98a}
+.sys-status[data-state="warn"] .dot{background:#F5C64B;box-shadow:0 0 8px #F5C64B}
+.sys-status[data-state="crit"]{border-color:rgba(255,59,107,.5);color:#ff9db0}
+.sys-status[data-state="crit"] .dot{background:#FF3B6B;box-shadow:0 0 8px #FF3B6B}
+.sys-status[data-state="idle"]{color:#5A7E92}
+@media(max-width:900px){.sys-status{display:none}}
+
+/* Utilization ring on the dashboard summary */
+.util-ring{--p:0;width:54px;height:54px;border-radius:50%;flex-shrink:0;position:relative;margin-left:6px;
+  background:radial-gradient(closest-side,#03060e 70%,transparent 71%),conic-gradient(var(--ring-c,#00E6FF) calc(var(--p)*1%),rgba(120,160,240,.14) 0);
+  box-shadow:0 0 18px rgba(0,230,255,.2)}
+.util-ring b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:'JetBrains Mono',ui-monospace,monospace;color:#EAFBFF}
+/* Confetti (payoff celebration) */
+.confetti-pc{position:fixed;top:-14px;width:9px;height:14px;z-index:9999;pointer-events:none;border-radius:2px;will-change:transform,opacity;animation:confFall linear forwards}
+@keyframes confFall{0%{transform:translateY(0) rotate(0);opacity:1}100%{transform:translateY(106vh) rotate(720deg);opacity:.9}}
+/* Mini balance sparkline on dashboard card tiles */
+.mini-spark{display:block;width:100%;height:22px;margin-top:6px;overflow:visible}
+
+/* ══ Mobile bottom tab bar ══ */
+.mnav{display:none;position:fixed;left:0;right:0;bottom:0;z-index:58;
+  background:rgba(4,10,20,.94);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
+  border-top:1px solid rgba(0,230,255,.34);box-shadow:0 -6px 24px rgba(0,0,0,.55);
+  padding:5px 4px calc(5px + env(safe-area-inset-bottom));justify-content:space-around;align-items:stretch}
+.mnav button{position:relative;flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:#7E8CB2;font-size:10px;font-weight:600;letter-spacing:.02em;padding:6px 2px;border-radius:10px;min-height:50px;cursor:pointer;font-family:inherit;transition:color .15s}
+.mnav button svg{width:23px;height:23px}
+.mnav button:active{background:rgba(0,230,255,.08)}
+.mnav button.on{color:#00E6FF}
+.mnav button.on svg{filter:drop-shadow(0 0 6px #00E6FF)}
+.mnav .mn-badge{position:absolute;top:5px;left:calc(50% + 8px);width:7px;height:7px;border-radius:50%;background:#FF3B6B;box-shadow:0 0 6px #FF3B6B;display:none}
+@media(max-width:768px){
+  .mnav{display:flex}
+  .main{padding-bottom:0}
+  .page{padding-bottom:78px!important}
+  .fab{bottom:calc(74px + env(safe-area-inset-bottom))!important}
+  .chatbox{bottom:calc(140px + env(safe-area-inset-bottom))!important;max-height:60vh}
+  .chatbox.open{height:min(470px,60vh)}
+}
 
 /* ══ Card grid ══ */
 .tile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px}
@@ -965,7 +1146,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .rcard-util-row{display:flex;justify-content:space-between;align-items:center;font-size:12px}
 .rc-flip-hint{position:absolute;right:12px;bottom:10px;z-index:2;font-size:9px;letter-spacing:.4px;text-transform:uppercase;opacity:.5;display:flex;align-items:center;gap:3px}
 /* Per-product generative skins — each card looks distinct even within an issuer */
-.rc-pattern{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.55;mix-blend-mode:soft-light}
+.rc-pattern{position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.7;mix-blend-mode:soft-light}
 .pat-guilloche{background:repeating-radial-gradient(circle at 25% 120%,transparent 0 3px,rgba(255,255,255,.10) 3px 4px)}
 .pat-holo{background:conic-gradient(from 0deg at 60% 40%,rgba(255,60,140,.16),rgba(60,200,255,.16),rgba(60,255,170,.16),rgba(255,210,70,.16),rgba(255,60,140,.16));mix-blend-mode:overlay;animation:holoSpin 12s linear infinite}
 .pat-mesh{background:repeating-linear-gradient(60deg,transparent 0 15px,rgba(255,255,255,.07) 15px 16px),repeating-linear-gradient(-60deg,transparent 0 15px,rgba(255,255,255,.07) 15px 16px)}
@@ -975,6 +1156,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 .pat-metal{background:repeating-linear-gradient(93deg,rgba(255,255,255,.10) 0 1px,transparent 1px 3px);opacity:.4}
 .pat-topo{background:repeating-radial-gradient(ellipse 65% 42% at 38% 62%,transparent 0 9px,rgba(255,255,255,.07) 9px 10px)}
 .pat-hex{background:radial-gradient(circle at 50% 50%,rgba(255,255,255,.08) 1.4px,transparent 1.6px);background-size:16px 28px}
+.pat-chrome{opacity:.9;mix-blend-mode:overlay;background:linear-gradient(100deg,rgba(255,255,255,.75) 0%,rgba(120,130,145,.05) 15%,rgba(35,42,54,.4) 33%,rgba(255,255,255,.65) 50%,rgba(35,42,54,.35) 67%,rgba(120,130,145,.05) 85%,rgba(255,255,255,.7) 100%)}
 .rc-holo-foil{position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(115deg,transparent 38%,rgba(255,255,255,.28) 46%,rgba(180,220,255,.14) 50%,transparent 60%);opacity:0;transform:translateX(-20%);transition:opacity .4s}
 .rcard:hover .rc-holo-foil{opacity:.7;transform:translateX(20%);transition:opacity .5s,transform .8s cubic-bezier(.16,1,.3,1)}
 @keyframes holoSpin{to{transform:rotate(360deg)}}
@@ -1001,7 +1183,8 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <div id="auth-gate">
   <!-- Login panel -->
   <div class="auth-box" id="auth-login-box">
-    <div class="auth-logo">C</div>
+    <img class="auth-logo" src="assets/cardos-logo-cardslot.png" alt="CardOS">
+
     <h2>CardOS</h2>
     <p>Sign in to your dashboard</p>
     <div class="auth-field">
@@ -1019,7 +1202,8 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   </div>
   <!-- Request access panel -->
   <div class="auth-box" id="auth-signup-box" style="display:none">
-    <div class="auth-logo">C</div>
+    <img class="auth-logo" src="assets/cardos-logo-cardslot.png" alt="CardOS">
+
     <h2>Request access</h2>
     <p id="su-desc">CardOS is invite-only. Enter your email and the admin will be notified.</p>
     <div class="auth-field" id="su-form-fields">
@@ -1036,7 +1220,10 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <div class="layout" id="main-layout">
 <!-- ═══ SIDEBAR ═══ -->
 <aside class="sidebar">
-  <div class="logo">C</div>
+  <div class="brand">
+    <img class="brand-mark" src="assets/cardos-logo-cardslot.png" alt="CardOS logo">
+    <span class="brand-word">Card<b>OS</b></span>
+  </div>
 
   <div class="nav-group-label">Daily</div>
   <button class="nav-btn active" onclick="nav('dashboard',this)">
@@ -1653,6 +1840,75 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 <!-- ═══ MODAL ROOT ═══ -->
 <div id="modal-root"></div>
 
+<!-- ═══ Mobile bottom tab bar ═══ -->
+<nav class="mnav" id="mnav" aria-label="Primary navigation">
+  <button data-page="dashboard" onclick="mnavGo('dashboard',this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 11l9-8 9 8M5 10v10h5v-6h4v6h5V10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Home</span></button>
+  <button data-page="cards" onclick="mnavGo('cards',this)"><svg viewBox="0 0 24 24" fill="none"><rect x="2" y="5" width="20" height="14" rx="2.5" stroke="currentColor" stroke-width="1.8"/><path d="M2 9.5h20" stroke="currentColor" stroke-width="1.8"/></svg><span>Cards</span></button>
+  <button data-page="transactions" onclick="mnavGo('transactions',this)"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12h4l2 6 4-14 2 8h6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span>Activity</span></button>
+  <button data-page="alerts" onclick="mnavGo('alerts',this)"><span class="mn-badge" id="mn-alert-badge"></span><svg viewBox="0 0 24 24" fill="none"><path d="M6 9a6 6 0 1112 0c0 5 2 6 2 6H4s2-1 2-6z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M10 20a2 2 0 004 0" stroke="currentColor" stroke-width="1.8"/></svg><span>Alerts</span></button>
+  <button onclick="openMobileSidebar()"><svg viewBox="0 0 24 24" fill="none"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span>Menu</span></button>
+</nav>
+
+<!-- ═══ Giant cursor-tracking eyes ═══ -->
+<div class="cyber-eyes" id="cyber-eyes" aria-hidden="true">
+  <svg class="eyes-svg" id="eyes-svg" viewBox="0 0 320 185" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="furrough" x="-25%" y="-25%" width="150%" height="150%">
+        <feTurbulence type="fractalNoise" baseFrequency="0.16 0.19" numOctaves="3" seed="7" result="n"/>
+        <feDisplacementMap in="SourceGraphic" in2="n" scale="20" xChannelSelector="R" yChannelSelector="G"/>
+      </filter>
+      <filter id="iglow" x="-40%" y="-40%" width="180%" height="180%">
+        <feGaussianBlur stdDeviation="2.4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+      </filter>
+      <radialGradient id="fur" cx="50%" cy="34%" r="66%">
+        <stop offset="0" stop-color="#8b48f5"/><stop offset="52%" stop-color="#4a1e9e"/><stop offset="100%" stop-color="#210d47"/>
+      </radialGradient>
+      <radialGradient id="iris" cx="50%" cy="50%" r="52%">
+        <stop offset="0" stop-color="#062a5a"/><stop offset="26%" stop-color="#12c8ff"/><stop offset="58%" stop-color="#1560d8"/><stop offset="86%" stop-color="#6a2fc0"/><stop offset="100%" stop-color="#c93cff"/>
+      </radialGradient>
+    </defs>
+    <!-- LEFT EYE -->
+    <g class="eye-el" id="eyeL">
+      <ellipse cx="90" cy="94" rx="72" ry="66" fill="url(#fur)" filter="url(#furrough)"/>
+      <ellipse cx="90" cy="90" rx="58" ry="52" fill="url(#fur)" filter="url(#furrough)" opacity=".85"/>
+      <g fill="#fff"><circle cx="52" cy="58" r="1.7" opacity=".85"/><circle cx="120" cy="52" r="1.3" opacity=".7"/><circle cx="140" cy="96" r="1.5" opacity=".7"/><circle cx="44" cy="104" r="1.3" opacity=".6"/><circle cx="96" cy="40" r="1.4" opacity=".7"/></g>
+      <ellipse cx="90" cy="100" rx="53" ry="47" fill="#04060f"/>
+      <g class="iris-move">
+        <circle cx="90" cy="100" r="37" fill="url(#iris)" filter="url(#iglow)"/>
+        <circle cx="90" cy="100" r="37" fill="none" stroke="#c93cff" stroke-width="3" opacity=".85"/>
+        <g fill="#bff6ff"><circle cx="76" cy="86" r="1.4"/><circle cx="104" cy="90" r="1.1"/><circle cx="82" cy="116" r="1.2"/><circle cx="102" cy="112" r="1"/></g>
+        <circle cx="90" cy="100" r="21" fill="#02030a"/>
+        <circle cx="80" cy="90" r="6.5" fill="#eaf6ff"/><circle cx="89" cy="87" r="3.4" fill="#cfeaff"/>
+      </g>
+    </g>
+    <!-- RIGHT EYE -->
+    <g class="eye-el" id="eyeR">
+      <ellipse cx="230" cy="94" rx="72" ry="66" fill="url(#fur)" filter="url(#furrough)"/>
+      <ellipse cx="230" cy="90" rx="58" ry="52" fill="url(#fur)" filter="url(#furrough)" opacity=".85"/>
+      <g fill="#fff"><circle cx="196" cy="54" r="1.6" opacity=".8"/><circle cx="268" cy="60" r="1.4" opacity=".7"/><circle cx="278" cy="102" r="1.3" opacity=".6"/><circle cx="200" cy="108" r="1.4" opacity=".65"/><circle cx="238" cy="40" r="1.3" opacity=".7"/></g>
+      <ellipse cx="230" cy="100" rx="53" ry="47" fill="#04060f"/>
+      <g class="iris-move">
+        <circle cx="230" cy="100" r="37" fill="url(#iris)" filter="url(#iglow)"/>
+        <circle cx="230" cy="100" r="37" fill="none" stroke="#c93cff" stroke-width="3" opacity=".85"/>
+        <g fill="#bff6ff"><circle cx="216" cy="86" r="1.4"/><circle cx="244" cy="90" r="1.1"/><circle cx="222" cy="116" r="1.2"/><circle cx="242" cy="112" r="1"/></g>
+        <circle cx="230" cy="100" r="21" fill="#02030a"/>
+        <circle cx="220" cy="90" r="6.5" fill="#eaf6ff"/><circle cx="229" cy="87" r="3.4" fill="#cfeaff"/>
+      </g>
+    </g>
+  </svg>
+</div>
+
+<!-- ═══ Floating assistant ═══ -->
+<button class="fab" id="chat-fab" title="Ask CardOS Assistant" aria-label="Open assistant">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M12 3C6.5 3 2 6.9 2 11.7c0 2.2 1 4.2 2.6 5.7L4 21l4-1.6c1.2.4 2.6.6 4 .6 5.5 0 10-3.9 10-8.7S17.5 3 12 3z" stroke="currentColor" stroke-width="1.8" fill="rgba(0,0,0,.12)"/><circle cx="8.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="12" cy="11.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
+</button>
+<div class="chatbox" id="chatbox">
+  <div class="chat-hd"><span class="d"></span><b>CardOS Assistant</b><span style="color:#5A7E92">· online</span><span class="x" onclick="toggleChat(false)">✕</span></div>
+  <div class="chat-body" id="chat-body"></div>
+  <div class="chat-chips" id="chat-chips"></div>
+  <div class="chat-input"><input id="chat-text" placeholder="Ask about your cards…" onkeydown="if(event.key==='Enter')chatSend()"><button class="btn btn-sm btn-primary" onclick="chatSend()">Send</button></div>
+</div>
+
 <script>
 // ─── AUTH ────────────────────────────────────────────────────────────────────
 let _currentUser  = null;
@@ -2111,6 +2367,54 @@ function saveConfig(){
 // COMPUTED
 // ═══════════════════════════════════════════════════════
 function daysUntil(ds){if(!ds)return null;const d=new Date(ds);d.setHours(0,0,0,0);return Math.round((d-TODAY)/86400000)}
+// Due/close dates are recurring monthly days. If one is in the past, roll it to
+// the next occurrence (same day-of-month, clamped) so the UI shows the UPCOMING
+// date instead of a stale "-7 days / past due". Returns YYYY-MM-DD.
+function nextMonthly(ds){
+  if(!ds||typeof ds!=='string'||ds.length<10)return ds;
+  const parts=ds.split('-'); const day=parseInt(parts[2],10); if(!day)return ds;
+  const today=new Date(TODAY.getTime()); today.setHours(0,0,0,0);
+  const orig=new Date(ds+'T12:00:00'); if(isNaN(orig)||orig>=today)return ds;
+  let c=new Date(today.getFullYear(),today.getMonth(),1);
+  for(let i=0;i<24;i++){
+    const last=new Date(c.getFullYear(),c.getMonth()+1,0).getDate();
+    const t=new Date(c.getFullYear(),c.getMonth(),Math.min(day,last),12,0,0);
+    if(t>=today)return t.toISOString().slice(0,10);
+    c=new Date(c.getFullYear(),c.getMonth()+1,1);
+  }
+  return ds;
+}
+// Roll any past due/close dates forward and persist if anything changed.
+function normalizeDueDates(){
+  if(typeof cards==='undefined'||!cards)return false;
+  let changed=false;
+  cards.forEach(c=>{
+    if(c.status==='closed')return;
+    ['dueDate','statementClose'].forEach(f=>{
+      if(c[f]){const n=nextMonthly(c[f]); if(n&&n!==c[f]){c[f]=n; changed=true;}}
+    });
+  });
+  if(changed){try{save();}catch(e){}}
+  return changed;
+}
+// Mark this statement cycle as paid: advance the due date one month and stamp lastPaid.
+function markPaid(cid){
+  const c=cards.find(x=>x.id===cid); if(!c)return;
+  const t=new Date(TODAY.getTime());
+  c.lastPaid=new Date(t.getFullYear(),t.getMonth(),t.getDate(),12).toISOString().slice(0,10);
+  if(c.dueDate){
+    const d=new Date(c.dueDate+'T12:00:00');
+    const nd=new Date(d.getFullYear(),d.getMonth()+1,1,12);
+    const last=new Date(nd.getFullYear(),nd.getMonth()+1,0).getDate();
+    nd.setDate(Math.min(d.getDate(),last));
+    c.dueDate=nd.toISOString().slice(0,10);
+  }
+  save();
+  const sb=getSupabase(); if(sb&&_currentUser) sb.from('cards').upsert({id:c.id,user_id:_currentUser.id,data:c}).then(()=>{});
+  const ov=document.querySelector('.overlay'); if(ov)ov.remove();
+  renderDashboard(); renderCards();
+  if(typeof showToast==='function')showToast('✓ Marked paid — next due '+(c.dueDate?fmtD(c.dueDate):'—'));
+}
 function fmt(n){return'$'+Math.round(n).toLocaleString()}
 function pct(n){return(Math.round(n*10)/10)+'%'}
 function fmtD(ds){if(!ds)return'—';return new Date(ds+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}
@@ -2133,6 +2437,20 @@ function totalUtil(){
 function utilClass(u,biz){if(biz)return'util-low';return u>=30?'util-high':u>=10?'util-med':'util-low'}
 const UC={high:'var(--red)',med:'var(--amber)',low:'var(--green)'};
 function utilColor(u,biz){if(biz)return'var(--blue)';return u>=30?UC.high:u>=10?UC.med:UC.low}
+// Chart.js can't parse CSS custom properties on a canvas — resolve var(--x) to
+// the computed value so chart colors aren't rendered black.
+function resolveColor(c){
+  if(typeof c==='string'&&c.indexOf('var(')===0){
+    const v=getComputedStyle(document.documentElement).getPropertyValue(c.slice(4,-1).trim()).trim();
+    return v||'#00E6FF';
+  }
+  return c;
+}
+// Theme-aware chart axis colors (neon grid on the dark theme).
+function chartAxis(){
+  const dark=document.documentElement.getAttribute('data-theme')==='dark';
+  return {grid:dark?'rgba(0,230,255,.10)':'#E2DDD5', tick:dark?'#8FB8CC':'#A8AABC'};
+}
 function utilBadge(u,biz){const b=biz?'bg-blue':u>=30?'bg-red':u>=10?'bg-amber':'bg-green';return`<span class="badge ${b}">${pct(u)}</span>`}
 function methodPill(m){const map={manual:'m-manual Manual',email:'m-email Email',aggregator:'m-aggregator Aggregator',browser:'m-browser Browser'};const[cls,lbl]=(map[m]||(m?'m-manual Other':'m-manual Manual')).split(' ');return`<span class="method-pill ${cls}">${lbl}</span>`}
 function issBadge(id){const i=getIss(id);return`<div class="iss-badge" style="background:${i.bg};color:${i.color}">${i.short}</div>`}
@@ -2327,37 +2645,74 @@ function shadeHex(hex,amt){ // amt<0 darken, >0 lighten
 // (Sapphire Reserve ≠ Freedom, Citi AAdvantage ≠ Strata Premier) is visually its
 // own card. Abstract/generative only — no reproduced issuer artwork.
 const PRODUCT_SKIN={
-  amex_platinum:{pat:'pat-metal',g:['#E9E9EC','#AFB4BE']},
-  amex_biz_platinum:{pat:'pat-carbon',g:['#2B303B','#0C0E13']},
-  amex_gold:{pat:'pat-guilloche',g:['#E7C36A','#B0842C']},
-  amex_biz_gold:{pat:'pat-guilloche',g:['#D9AE52','#946F24']},
-  amex_bcp:{pat:'pat-waves',g:['#2E7FC2','#123F6C']},
-  amex_bce:{pat:'pat-mesh',g:['#4AA3DF','#1C68AC']},
-  chase_reserve:{pat:'pat-holo',g:['#20263C','#05070E']},
-  chase_preferred:{pat:'pat-waves',g:['#1E5A96','#0A2A4C']},
-  chase_freedom_unlimited:{pat:'pat-mesh',g:['#1E88D6','#0D4A82']},
-  chase_freedom_flex:{pat:'pat-circuit',g:['#164B7A','#0A2A47']},
-  chase_ink_preferred:{pat:'pat-circuit',g:['#16406B','#08243F']},
-  chase_ink_cash:{pat:'pat-hex',g:['#0E6B3E','#053A20']},
-  chase_ink_unlimited:{pat:'pat-mesh',g:['#1E88D6','#0D4A82']},
-  citi_strata:{pat:'pat-topo',g:['#123761','#050C1A']},
-  citi_double_cash:{pat:'pat-carbon',g:['#22406E','#0A1930']},
-  citi_custom_cash:{pat:'pat-waves',g:['#1C64B0','#0A315F']},
-  capone_venture_x:{pat:'pat-metal',g:['#22323F','#0A121B']},
-  capone_venture:{pat:'pat-waves',g:['#8B1E2D','#460D16']},
-  capone_savor:{pat:'pat-holo',g:['#C0392B','#57120D']},
+  amex_platinum:{pat:'pat-chrome',g:['#EEF1F5','#8A93A0'],ac:'#3B4657'},
+  amex_biz_platinum:{pat:'pat-chrome',g:['#E6E9EF','#7E8794'],ac:'#3B4657'},
+  amex_gold:{pat:'pat-guilloche',g:['#E7C36A','#B0842C'],ac:'#5A3E12'},
+  amex_biz_gold:{pat:'pat-guilloche',g:['#D9AE52','#946F24'],ac:'#4A340F'},
+  amex_bcp:{pat:'pat-waves',g:['#2E7FC2','#123F6C'],ac:'#9FD0FF'},
+  amex_bce:{pat:'pat-mesh',g:['#4AA3DF','#1C68AC'],ac:'#BFE6FF'},
+  chase_reserve:{pat:'pat-metal',g:['#2A5AA8','#0A1B3D'],ac:'#A9CBFF'},
+  chase_preferred:{pat:'pat-waves',g:['#2E63B0','#0C2350'],ac:'#8FC7FF'},
+  chase_freedom_unlimited:{pat:'pat-mesh',g:['#1E88D6','#0D4A82'],ac:'#8FE0FF'},
+  chase_freedom_flex:{pat:'pat-circuit',g:['#164B7A','#0A2A47'],ac:'#7FB2E8'},
+  chase_ink_preferred:{pat:'pat-circuit',g:['#16406B','#08243F'],ac:'#7FA8FF'},
+  chase_ink_cash:{pat:'pat-hex',g:['#0E6B3E','#053A20'],ac:'#7FE3A0'},
+  chase_ink_unlimited:{pat:'pat-mesh',g:['#1E88D6','#0D4A82'],ac:'#8FE0FF'},
+  citi_strata:{pat:'pat-topo',g:['#12385F','#050B18'],ac:'#F0C24A'},
+  citi_double_cash:{pat:'pat-carbon',g:['#22406E','#0A1930'],ac:'#7FA8FF'},
+  citi_custom_cash:{pat:'pat-waves',g:['#1C64B0','#0A315F'],ac:'#7FD3FF'},
+  capone_venture_x:{pat:'pat-metal',g:['#22323F','#0A121B'],ac:'#D8B26A'},
+  capone_venture:{pat:'pat-waves',g:['#8B1E2D','#460D16'],ac:'#FF9BA6'},
+  capone_savor:{pat:'pat-holo',g:['#C0392B','#57120D'],ac:'#FFC7A0'},
 };
+// Recognizable products WITHOUT a benefit template still deserve their real
+// look — matched against the card name (first match wins). Authentic brand
+// COLOR LANGUAGE only, never reproduced logos/artwork.
+const NAME_SKINS=[
+  [/a[\s-]?advantage|american\s*air/i,{pat:'pat-metal',g:['#D7DCE3','#98A3B0'],ac:'#C8102E'}], // AA — platinum silver + red
+  [/strata\s*premier/i,{pat:'pat-topo',g:['#12385F','#050B18'],ac:'#F0C24A'}],                  // premium navy + gold
+  [/strata/i,{pat:'pat-waves',g:['#0E5C63','#04262A'],ac:'#5FE3C0'}],                            // base Strata — teal
+  [/sapphire\s*reserve/i,{pat:'pat-metal',g:['#2A5AA8','#0A1B3D'],ac:'#A9CBFF'}],
+  [/sapphire/i,{pat:'pat-waves',g:['#2E63B0','#0C2350'],ac:'#8FC7FF'}],
+  [/freedom/i,{pat:'pat-mesh',g:['#1E88D6','#0D4A82'],ac:'#8FE0FF'}],
+  [/venture\s*x/i,{pat:'pat-metal',g:['#22323F','#0A121B'],ac:'#D8B26A'}],
+  [/venture/i,{pat:'pat-waves',g:['#8B1E2D','#460D16'],ac:'#FF9BA6'}],
+  [/savor/i,{pat:'pat-holo',g:['#C0392B','#57120D'],ac:'#FFC7A0'}],
+  [/quicksilver/i,{pat:'pat-metal',g:['#C7CDD6','#8A93A0'],ac:'#3B6EF6'}],
+  [/double\s*cash/i,{pat:'pat-carbon',g:['#22406E','#0A1930'],ac:'#7FA8FF'}],
+  [/custom\s*cash/i,{pat:'pat-waves',g:['#1C64B0','#0A315F'],ac:'#7FD3FF'}],
+  [/delta/i,{pat:'pat-waves',g:['#7A2230','#3A0E16'],ac:'#E8C0C6'}],
+  [/united/i,{pat:'pat-waves',g:['#12385F','#08213B'],ac:'#7FB2E8'}],
+  [/marriott|bonvoy/i,{pat:'pat-topo',g:['#123A5A','#071B30'],ac:'#C9A24A'}],
+  [/hilton/i,{pat:'pat-waves',g:['#0E4C8A','#062A4E'],ac:'#7FD0FF'}],
+  [/southwest/i,{pat:'pat-waves',g:['#C0392B','#5A140E'],ac:'#F0C24A'}],
+  [/amazon|prime/i,{pat:'pat-circuit',g:['#232F3E','#0B1016'],ac:'#FF9900'}],
+  [/apple\s*card/i,{pat:'pat-metal',g:['#EDEDED','#B8BCC2'],ac:'#333333'}],
+  [/business|ink|\bbiz\b/i,{pat:'pat-circuit',g:['#16406B','#08243F'],ac:'#7FA8FF'}],
+  [/gold/i,{pat:'pat-guilloche',g:['#E7C36A','#B0842C'],ac:'#5A3E12'}],
+  [/platinum/i,{pat:'pat-chrome',g:['#EEF1F5','#8A93A0'],ac:'#3B4657'}],
+  [/cash|rewards?/i,{pat:'pat-hex',g:['#0E6B3E','#053A20'],ac:'#7FE3A0'}],
+];
+// Diverse fallback palettes (varied hues) for wholly-unknown cards — chosen by
+// name hash so two unknown cards never share a color.
+const SKIN_POOL=[
+  {pat:'pat-waves',g:['#1E5A96','#0A2A4C'],ac:'#8FC7FF'},
+  {pat:'pat-hex',g:['#0E6B3E','#053A20'],ac:'#7FE3A0'},
+  {pat:'pat-holo',g:['#5B2A86','#25103A'],ac:'#D3A5FF'},
+  {pat:'pat-carbon',g:['#2B303B','#0C0E13'],ac:'#9FB0C8'},
+  {pat:'pat-topo',g:['#12385F','#050B18'],ac:'#7FB2E8'},
+  {pat:'pat-mesh',g:['#0E5C63','#04262A'],ac:'#5FE3C0'},
+  {pat:'pat-circuit',g:['#8B1E2D','#460D16'],ac:'#FF9BA6'},
+  {pat:'pat-guilloche',g:['#B0842C','#5A3E12'],ac:'#F0D48A'},
+];
 const PAT_POOL=['pat-guilloche','pat-waves','pat-mesh','pat-topo','pat-circuit','pat-hex','pat-carbon'];
 function hashStr(s){let h=0;for(let i=0;i<(s||'').length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h);}
 function cardSkin(c){
   const [key]=matchTemplate(c);
-  if(key&&PRODUCT_SKIN[key]){const s=PRODUCT_SKIN[key];return {b1:s.g[0],b2:s.g[1],pattern:s.pat,light:isLightColor(s.g[0])};}
-  // no template → derive a deterministic, unique skin so no two cards look alike
-  const face=cardFaceColor(c); const light=isLightColor(face);
-  const b1=shadeHex(face,light?14:26), b2=shadeHex(face,light?-30:-52);
-  // hue-rotate the pattern hue slightly per card so same-issuer cards differ
-  const h=hashStr((c.issuerId||'')+'|'+(c.name||'')+'|'+(c.last4||''));
-  return {b1:shadeHex(b1,(h%3)*6-6),b2:shadeHex(b2,((h>>2)%3)*6-6),pattern:PAT_POOL[h%PAT_POOL.length],light};
+  let s=(key&&PRODUCT_SKIN[key])||null;
+  if(!s){ const nm=(c.name||''); for(const pair of NAME_SKINS){ if(pair[0].test(nm)){ s=pair[1]; break; } } }
+  if(!s){ s=SKIN_POOL[hashStr((c.name||'')+'|'+(c.issuerId||''))%SKIN_POOL.length]; }
+  return {b1:s.g[0],b2:s.g[1],pattern:s.pat,accent:s.ac||'#F0C24A',light:isLightColor(s.g[0])};
 }
 // Likely network per issuer (illustrative — Plaid doesn't return the network)
 const ISSUER_NET={amex:'amex',disc:'discover',chase:'visa',boa:'visa',wells:'visa',usb:'visa',citi:'mastercard',capone:'mastercard',barc:'mastercard'};
@@ -2434,6 +2789,7 @@ function cardVisual(c){
       <div class="rcard-face rcard-front" style="--b1:${b1};--b2:${b2};--ctext:${ctext}">
         <div class="rc-pattern ${skin.pattern}"></div>
         <div class="rc-holo-foil"></div>
+        <div class="rc-accent" style="position:absolute;left:0;top:0;bottom:0;width:4px;background:${skin.accent};box-shadow:1px 0 14px ${skin.accent}88;border-radius:16px 0 0 16px"></div>
         <div class="rc-top"><span class="rc-issuer">${esc(iss.name)}</span><span class="rc-net">${networkMark(c.issuerId,light)}</span></div>
         <div class="rc-chip"></div>
         <div class="rc-wifi" style="color:${ctext}">${_wifiSVG}</div>
@@ -2453,7 +2809,7 @@ function cardVisual(c){
 function dashCardTile(c){
   const v=cv(c); const util=v.util||0; const avail=Math.max(0,c.limit-c.balance);
   const dim=c.status!=='active'?'opacity:.62;':'';
-  return`<div class="rcard-wrap" style="${dim}">
+  return`<div class="rcard-wrap" data-spark="${esc(c.id||'')}" style="${dim}">
     ${cardVisual(c)}
     <div class="rcard-util">
       <div class="rcard-util-bar"><div class="rcard-util-fill" style="width:${Math.min(100,util)}%;background:${utilBarColor(util)}"></div></div>
@@ -2461,6 +2817,7 @@ function dashCardTile(c){
         <span style="color:${utilTxtColor(util)};font-weight:700">${pct(util)} used</span>
         <span class="tnum" style="color:var(--text2)">${fmt(avail)} left</span>
       </div>
+      <svg class="mini-spark" aria-hidden="true"></svg>
     </div>
   </div>`;
 }
@@ -2721,11 +3078,11 @@ function renderReports(){
 
   destroyChart('chart-util');destroyChart('chart-bal');destroyChart('chart-trend');
   const actCards=cards.filter(c=>c.status!=='closed'&&c.balance>0);
-  const gridColor='#E2DDD5', tickColor='#A8AABC';
+  const _ax=chartAxis(), gridColor=_ax.grid, tickColor=_ax.tick;
 
-  // Utilization bar chart — warm theme
+  // Utilization bar chart
   const ctx1=document.getElementById('chart-util')?.getContext('2d');
-  if(ctx1){chartInstances['chart-util']=new Chart(ctx1,{type:'bar',data:{labels:actCards.map(c=>c.name.split(' ')[0]+' ••'+c.last4),datasets:[{data:actCards.map(c=>cv(c).util),backgroundColor:actCards.map(c=>utilColor(cv(c).util,c.isBusiness)),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Utilization: '+pct(ctx.raw)},backgroundColor:'#1B2040',titleColor:'#fff',bodyColor:'#8892B0',padding:10,cornerRadius:8}},scales:{x:{ticks:{color:tickColor,font:{size:11}},grid:{color:gridColor}},y:{ticks:{color:tickColor,font:{size:11},callback:v=>v+'%'},grid:{color:gridColor},max:Math.max(50,Math.ceil(Math.max(...actCards.map(c=>cv(c).util))/10)*10+10)}}}});}
+  if(ctx1){chartInstances['chart-util']=new Chart(ctx1,{type:'bar',data:{labels:actCards.map(c=>c.name.split(' ')[0]+' ••'+c.last4),datasets:[{data:actCards.map(c=>cv(c).util),backgroundColor:actCards.map(c=>resolveColor(utilColor(cv(c).util,c.isBusiness))),borderRadius:6,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>'Utilization: '+pct(ctx.raw)},backgroundColor:'#1B2040',titleColor:'#fff',bodyColor:'#8892B0',padding:10,cornerRadius:8}},scales:{x:{ticks:{color:tickColor,font:{size:11}},grid:{color:gridColor}},y:{ticks:{color:tickColor,font:{size:11},callback:v=>v+'%'},grid:{color:gridColor},max:Math.max(50,Math.ceil(Math.max(...actCards.map(c=>cv(c).util))/10)*10+10)}}}});}
 
   // Balance donut — warm palette
   const DONUT_COLORS=['#4F46E5','#16A34A','#D97706','#DC2626','#7C3AED','#0D9488','#DB2777','#2563EB','#EA580C','#65A30D'];
@@ -2936,8 +3293,12 @@ function showDetail(cid){
         <div class="detail-section">
           <div class="sec-title">Dates</div>
           ${dr('Statement closes',fmtDFull(c.statementClose)+(v.closeIn!==null?' ('+v.closeIn+'d)':''))}
-          ${dr('Payment due',fmtDFull(c.dueDate)+(v.dueIn!==null?' ('+v.dueIn+'d)':''))}
-          ${c.annualFee?dr('Annual fee',fmt(c.annualFee)+' (month '+c.annualFeeMonth+')'):''}
+          ${dr('Payment due',fmtDFull(c.dueDate)+(v.dueIn!==null?' (in '+v.dueIn+'d)':''))}
+          ${c.annualFee?dr('Annual fee',fmt(c.annualFee)+(c.annualFeeMonth?' · '+['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][c.annualFeeMonth]:'/yr')):''}
+          ${c.dueDate&&!c.autopay?`<div style="margin-top:8px;display:flex;align-items:center;gap:8px">
+            <button class="btn btn-xs" onclick="markPaid('${c.id}')">✓ Mark this cycle paid</button>
+            ${c.lastPaid?`<span style="font-size:11px;color:var(--green)">Paid ${fmtD(c.lastPaid)}</span>`:''}
+          </div>`:''}
         </div>
         <div class="detail-section" style="margin-top:0">
           <div class="sec-title">Card info</div>
@@ -5276,7 +5637,7 @@ function saveTxNotes(uid){
 
 function renderTxCharts(catTotals,prevTotals,selMonth,prevMonth){
   destroyChart('chart-tx-cat');destroyChart('chart-tx-cmp');
-  const tickColor='#A8AABC',gridColor='#E2DDD5';
+  const _txax=chartAxis(),tickColor=_txax.tick,gridColor=_txax.grid;
   const el=document.getElementById('tx-period-label');
   if(el)el.textContent=selMonth?(new Date(selMonth+'-01T12:00:00')).toLocaleDateString('en-US',{month:'long',year:'numeric'}):'All time';
 
@@ -6069,6 +6430,342 @@ async function approveRequest(email,btn){
   }
 }
 // ─────────────────────────────────────────────────────────────────────────────
+</script>
+
+<!-- ═══ Neon extras: scanlines, cursor-eyes, assistant ═══ -->
+<script>
+(function(){
+  // Scanline CRT overlay (only visible in the neon/dark theme via CSS)
+  if(!document.querySelector('.scanlines')){var s=document.createElement('div');s.className='scanlines';document.body.insertBefore(s,document.body.firstChild);}
+
+  // Giant cursor-tracking eyes
+  var eyes=document.getElementById('cyber-eyes');
+  if(eyes){
+    var groups=Array.prototype.slice.call(eyes.querySelectorAll('.iris-move'));
+    var _clock=function(){return (window.performance&&performance.now)?performance.now():Date.now();};
+    var lastMove=0;
+    function look(cx,cy,slow){
+      lastMove=_clock();
+      groups.forEach(function(g){
+        var eye=g.parentNode, r=eye.getBoundingClientRect();
+        var ex=r.left+r.width/2, ey=r.top+r.height/2;
+        var a=Math.atan2(cy-ey,cx-ex);
+        var f=Math.min(1,Math.hypot(cx-ex,cy-ey)/280);
+        g.style.transition=slow?'transform .8s ease':'transform .09s ease-out';
+        g.style.transform='translate('+(Math.cos(a)*13*f).toFixed(1)+'px,'+(Math.sin(a)*13*f).toFixed(1)+'px)';
+      });
+    }
+    document.addEventListener('mousemove',function(e){look(e.clientX,e.clientY);},{passive:true});
+    document.addEventListener('touchstart',function(e){if(e.touches&&e.touches[0])look(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+    document.addEventListener('touchmove',function(e){if(e.touches&&e.touches[0])look(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+    var svg=document.getElementById('eyes-svg');
+    var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    if(!reduce&&svg)setInterval(function(){
+      svg.classList.add('blink');setTimeout(function(){svg.classList.remove('blink');},150);
+    },4200);
+    // Idle wander — keeps the eyes alive with no pointer (mobile / when the mouse is still).
+    if(!reduce)setInterval(function(){
+      if(_clock()-lastMove<1600)return;
+      var ang=Math.random()*Math.PI*2, dist=5+Math.random()*7;
+      groups.forEach(function(g){g.style.transition='transform .9s ease';g.style.transform='translate('+(Math.cos(ang)*dist).toFixed(1)+'px,'+(Math.sin(ang)*dist).toFixed(1)+'px)';});
+    },2200);
+  }
+})();
+
+// ── Assistant: answers from your live `cards` data (no external calls) ──
+function _chatMoney(n){try{return fmt(Math.round(n));}catch(e){return '$'+Math.round(n).toLocaleString();}}
+// ── number helpers for the calculator engine ──
+function _cnum(s){return parseFloat(String(s).replace(/[,$\s]/g,''));}
+function _dollarsIn(q){return (q.match(/\$\s*\d[\d,]*\.?\d*/g)||[]).map(_cnum);}
+function _numsIn(q){return (q.match(/\d[\d,]*\.?\d*/g)||[]).map(_cnum).filter(function(n){return !isNaN(n);});}
+function _pctIn(q){var m=q.match(/(\d[\d.]*)\s*%/);return m?parseFloat(m[1]):null;}
+function _monthsIn(q){var m=q.match(/(\d+)\s*(?:months?|mo\b)/i);return m?parseInt(m[1],10):null;}
+function _payoff(bal,apr,pay){var r=apr/100/12,m=0,tot=0,b=bal;if(r>0&&pay<=b*r)return{months:Infinity};while(b>0.005&&m<1200){var i=b*r;tot+=i;b=b+i-pay;m++;}return{months:m,interest:tot};}
+
+// The CardOS assistant: live-card answers + a real credit-card knowledge base +
+// financial calculators (APR/interest, payoff, balance transfer). No external calls.
+function chatAnswer(qRaw){
+  var q=(qRaw||'').toLowerCase().trim();
+  var M=_chatMoney;
+  var have=(typeof cards!=='undefined'&&cards&&cards.length)?cards:[];
+  var pct=_pctIn(qRaw), dols=_dollarsIn(qRaw), alln=_numsIn(qRaw), mo=_monthsIn(qRaw);
+
+  // ===== CONCEPT EXPLAINERS (explanation intent → answer, don't pull numbers) =====
+  if(/\b(what('| i)?s|what is|how does|how do|explain|meaning of|tell me about)\b/.test(q)){
+    if(/\bapr\b|interest rate|interest work/.test(q))
+      return "**APR** = your yearly interest rate, but card interest is charged **daily**: daily rate = APR ÷ 365, applied to your balance each day. A $1,000 balance at 24% APR ≈ **$20/month** in interest. You avoid it entirely by paying the **statement balance in full** every cycle (the grace period). Give me a balance + APR and I'll do the exact math.";
+    if(/utiliz|credit score|fico/.test(q))
+      return "**Utilization** = balance ÷ credit limit, and it's ~**30% of your FICO score**. Keep **each card under 30%** (under 10% is ideal), and pay before the **statement closing date** — that snapshot is what's reported, not the due date. Paying to near $0 before the statement closes reports low utilization.";
+    if(/grace period/.test(q))
+      return "The **grace period** (~21–25 days after the statement) lets you pay **no interest** — but only if you pay the statement balance in **full**. Carry any balance and you lose it, and new purchases start accruing interest immediately until you're back to $0 for a full cycle.";
+    if(/sign.?up|welcome/.test(q))
+      return "A **sign-up bonus** is a lump of points/cash for hitting a **minimum spend** in the first ~3 months. Premium travel cards run the biggest (60k–100k+ points ≈ $600–$1,500+); cash cards are smaller ($200–$300). Only chase one if you'd hit the spend naturally.";
+    if(/balance transfer/.test(q))
+      return "A **balance transfer** moves debt to a **0%-intro** card for a **3–5% fee**. Worth it when the interest saved during the 0% window beats the fee — and only if you clear it before the promo ends (the rate jumps after). Give me an amount + fee + months and I'll run it.";
+  }
+
+  // ===== CALCULATORS =====
+  // Interest / payoff — needs a balance + APR (+ optional monthly payment)
+  if(/interest|\bapr\b|pay ?off|payoff|how long|carry|finance charge/.test(q)){
+    var apr = pct!=null?pct:null;
+    var bal = dols.length?dols[0]:(alln.filter(function(n){return n!==apr;})[0]!=null?alln.filter(function(n){return n!==apr;})[0]:null);
+    var pay = dols.length>1?dols[1]:null;
+    if(pay==null){var pm=qRaw.match(/(?:pay(?:ing)?|put)\s*\$?\s*(\d[\d,]*\.?\d*)/i);if(pm)pay=_cnum(pm[1]);}
+    if(bal!=null&&apr!=null){
+      var monthly=bal*(apr/100/12);
+      if(pay!=null){
+        var r=_payoff(bal,apr,pay);
+        if(r.months===Infinity)
+          return "At **"+M(pay)+"/mo** you're below the monthly interest of **"+M(monthly)+"** on "+M(bal)+" at "+apr+"% APR — the balance would grow, never shrink. Pay more than "+M(monthly)+"/mo.";
+        return "**"+M(bal)+"** at **"+apr+"% APR**, paying **"+M(pay)+"/mo**:\n• Payoff: **"+r.months+" months** (~"+(r.months/12).toFixed(1)+" yrs)\n• Total interest: **"+M(r.interest)+"**\n• Month-1 interest: "+M(monthly)+"\nPaying before the statement closes also lowers your reported utilization.";
+      }
+      return "At **"+apr+"% APR**, **"+M(bal)+"** accrues about **"+M(monthly)+"/mo** in interest ("+M(monthly*12)+"/yr if carried). Tell me your monthly payment and I'll give the exact payoff time + total interest.";
+    }
+    if(bal!=null&&apr==null) return "Got the balance ("+M(bal)+"). What's the APR? e.g. \""+M(bal)+" at 22% APR paying $300/mo\".";
+  }
+
+  // Balance transfer
+  if(/balance transfer|\bbt\b|transfer.*(fee|0%|intro|promo)/.test(q)){
+    var amt=dols.length?dols[0]:(alln[0]!=null?alln[0]:null);
+    var fee=(pct!=null&&pct<=10)?pct:3, win=mo||18;
+    if(amt!=null){
+      var feeCost=amt*fee/100, saved=amt*0.22*(win/12);
+      return "Transfer **"+M(amt)+"** at a **"+fee+"% fee** = **"+M(feeCost)+"** upfront.\n• That debt at ~22% APR for "+win+" months would cost ~**"+M(saved)+"** in interest.\n• Net: "+(saved>feeCost?("**worth it** — you save ~"+M(saved-feeCost)):("**not worth it** — ~"+M(feeCost-saved)+" more"))+".\nOnly if you clear it before the 0% promo ends.";
+    }
+    return "A balance transfer moves debt to a 0%-intro card for a **3–5% fee**. It wins when interest saved during the 0% window beats the fee — and only if paid off before the promo ends. Give me the amount, fee %, and promo months.";
+  }
+
+  // Sign-up bonuses (general, honest about changing offers)
+  if(/sign.?up bonus|welcome (bonus|offer)|\bsub\b|which cards? .*bonus|best bonus|biggest bonus|bonus.*spend/.test(q))
+    return "**Sign-up bonuses** reward a **minimum spend** in the first ~3 months:\n• **Premium travel** (Chase Sapphire, Amex Platinum, Capital One Venture) — biggest, often **60k–100k+ pts** ($600–$1,500+).\n• **Cash back** (Chase Freedom, Citi Custom Cash) — smaller ($200–$300), lower spend.\nOffers change constantly, so confirm on the issuer's page. Tell me the points + spend and I'll value it.";
+
+  // Annual fee worth it
+  if(/annual fee.*(worth|justif)|worth.*(annual fee|the fee)|keep .*fee|downgrade/.test(q)){
+    var feeCards=have.filter(function(c){return c.annualFee>0;});
+    var base="An annual fee pays for itself when the **credits + rewards you actually use** beat it. Total the perks you'll really redeem (travel credit, lounge, free night, elevated earn) vs the fee — if it's negative two years running, downgrade to a no-fee version.";
+    if(feeCards.length) base+="\nYour fee cards: "+feeCards.map(function(c){return c.name+" ("+M(c.annualFee)+"/yr)";}).join(', ')+". The Card Benefits tab tracks each credit's offset.";
+    return base;
+  }
+
+  // Minimum payment trap
+  if(/minimum payment|min payment|just the min|only.*min/.test(q))
+    return "Paying only the **minimum** (~1–3% of balance) is a trap — most goes to interest, so a 20%+ APR balance can take **15–20+ years** and cost more than the original debt. Pay 2–3× the minimum and the payoff time collapses. Give me a balance + APR and I'll show it.";
+
+  // Foreign fees / cash advance / rewards
+  if(/foreign transaction|travel.*fee|\babroad\b|overseas|foreign fee/.test(q))
+    return "**Foreign transaction fees** run ~**3%** abroad or on foreign-currency charges. Travel cards usually waive them — use a no-FTF card and always pay in the **local currency** (decline 'convert to USD').";
+  if(/cash advance/.test(q))
+    return "**Avoid cash advances** — higher APR (25–30%), a **~5% fee**, and **no grace period** (interest starts immediately). Emergency-only.";
+  if(/points|miles|cash ?back|rewards? (type|better|worth|vs)/.test(q))
+    return "**Cash back** = simple and flexible (1–5%). **Points/miles** can be worth more (1.5–2¢+ each) via travel transfer partners, but only if you'll actually use them — otherwise cash back wins. Match the card's bonus categories to where you spend most.";
+
+  // ===== LIVE CARD DATA =====
+  if(!have.length)
+    return "No cards connected yet — open Connections to link a bank, or add one manually. I can still run calculations and answer general credit-card questions. Try: \"$5,000 at 22% APR paying $300/mo\" or \"what's a good sign-up bonus?\"";
+  var sum=function(f){return have.reduce(function(a,c){return a+(f(c)||0);},0);};
+  var totBal=sum(function(c){return c.balance;}), totLim=sum(function(c){return c.limit;});
+  var avail=Math.max(0,totLim-totBal), util=totLim?totBal/totLim*100:0;
+  var withLim=have.filter(function(c){return c.limit>0;});
+  var byUtil=withLim.slice().sort(function(a,b){return (b.balance/b.limit)-(a.balance/a.limit);});
+  var u=function(c){return c.balance/c.limit*100;};
+  if(/how much|owe|debt|my (balance|total)|total (owed|balance|debt)/.test(q))
+    return "You currently owe **"+M(totBal)+"** across "+have.length+" card"+(have.length>1?'s':'')+" — "+util.toFixed(1)+"% of your "+M(totLim)+" total limit.";
+  if(/utiliz|usage|\bused\b|my score/.test(q)){var hi=byUtil[0];return "Your overall utilization is **"+util.toFixed(1)+"%**. Highest is "+hi.name+" at "+u(hi).toFixed(1)+"%. Keep each card under 30% (ideally 10%).";}
+  if(/avail|left|room|can i spend/.test(q))
+    return "You have **"+M(avail)+"** in available credit across your cards.";
+  if(/highest|worst|most used|riskiest/.test(q)){var h=byUtil[0];return h.name+" has the highest utilization at **"+u(h).toFixed(1)+"%** ("+M(h.balance)+" of "+M(h.limit)+").";}
+  if(/best|which card|recommend|next purchase|should i use|what card/.test(q)){var best=withLim.slice().sort(function(a,b){return (b.limit-b.balance)-(a.limit-a.balance);})[0];return "For your next purchase, use **"+best.name+"** — most room, "+M(best.limit-best.balance)+" available ("+u(best).toFixed(1)+"% utilized).";}
+  if(/how many|number of|count/.test(q))
+    return "You have **"+have.length+"** card"+(have.length>1?'s':'')+" tracked in CardOS.";
+  if(/fee|annual/.test(q)){var fees=have.filter(function(c){return c.annualFee>0;});var t=fees.reduce(function(a,c){return a+c.annualFee;},0);return fees.length?("You pay **"+M(t)+"/yr** in annual fees across "+fees.length+" card"+(fees.length>1?'s':'')+": "+fees.map(function(c){return c.name+" ("+M(c.annualFee)+")";}).join(', ')+"."):"None of your cards have an annual fee.";}
+  if(/^(hi|hey|hello|help|yo|sup|what can you)\b/.test(q))
+    return "Hey! I'm your credit-card brain. I can:\n• Read your live cards (owe, utilization, best card, fees)\n• Run math — APR interest, payoff time, balance transfers\n• Explain anything — sign-up bonuses, credit score, grace periods, cash advances\nTry \"$5,000 at 22% APR paying $300/mo\" or \"what's a good sign-up bonus?\"";
+  return "I can go a few ways — try being specific. I handle **your cards** (owe, utilization, best card, fees), **calculations** (\"$4,000 at 24% APR paying $200/mo\", balance transfers), and **concepts** (sign-up bonuses, APR, credit score, grace period, cash advances). What do you want to know?";
+}
+function _chatEsc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function _chatPush(text,who){var b=document.getElementById('chat-body');if(!b)return;var d=document.createElement('div');d.className='msg '+who;d.innerHTML=_chatEsc(text).replace(/\*\*([^*]+?)\*\*/g,'<b>$1</b>').replace(/\n/g,'<br>');b.appendChild(d);b.scrollTop=b.scrollHeight;}
+var _chatHistory=[]; var _aiOff=false; // _aiOff: backend not configured → stay local
+function _localFallback(t){try{return chatAnswer(t);}catch(e){return 'Hmm — try that again in a moment.';}}
+function _chatCards(){try{return (typeof cards!=='undefined'&&cards)?cards.map(function(c){return {name:c.name,issuerId:c.issuerId,balance:c.balance,limit:c.limit,annualFee:c.annualFee,last4:c.last4,status:c.status};}):[];}catch(e){return [];}}
+function chatRespond(t){
+  return new Promise(function(resolve){
+    if(_aiOff){resolve(_localFallback(t));return;}
+    var done=false, finish=function(r){if(!done){done=true;resolve(r);}};
+    try{
+      var headers={'Content-Type':'application/json'};
+      try{var ah=getAuthHeaders();if(ah)for(var k in ah)headers[k]=ah[k];}catch(e){}
+      var ctrl=('AbortController' in window)?new AbortController():null;
+      var to=setTimeout(function(){if(ctrl)ctrl.abort();finish(_localFallback(t));},18000);
+      fetch('/.netlify/functions/ai-chat',{method:'POST',headers:headers,body:JSON.stringify({message:t,history:_chatHistory.slice(-10),cards:_chatCards()}),signal:ctrl?ctrl.signal:undefined})
+        .then(function(r){return r.json().then(function(j){return {ok:r.ok,j:j};});})
+        .then(function(res){clearTimeout(to);
+          if(res.j&&res.j.not_configured){_aiOff=true;finish(_localFallback(t));return;}
+          if(res.ok&&res.j&&res.j.reply){finish(res.j.reply);}
+          else{finish(_localFallback(t));}
+        }).catch(function(){clearTimeout(to);finish(_localFallback(t));});
+    }catch(e){finish(_localFallback(t));}
+  });
+}
+function chatSend(){var i=document.getElementById('chat-text');var t=(i.value||'').trim();if(!t)return;_chatPush(t,'me');i.value='';
+  _chatHistory.push({role:'user',content:t});
+  var b=document.getElementById('chat-body');var typing=document.createElement('div');typing.className='msg bot typing';typing.innerHTML='<span></span><span></span><span></span>';if(b){b.appendChild(typing);b.scrollTop=b.scrollHeight;}
+  chatRespond(t).then(function(reply){
+    if(typing)typing.remove();
+    _chatPush(reply,'bot');
+    _chatHistory.push({role:'assistant',content:reply});
+    if(_chatHistory.length>20)_chatHistory=_chatHistory.slice(-20);
+  });}
+function chatAsk(t){var i=document.getElementById('chat-text');i.value=t;chatSend();}
+var _chatInit=false;
+function toggleChat(force){
+  var box=document.getElementById('chatbox');if(!box)return;
+  var open=(typeof force!=='undefined')?force:!box.classList.contains('open');
+  box.classList.toggle('open',open);
+  if(open&&!_chatInit){_chatInit=true;
+    _chatPush("Hey — I'm your CardOS credit-card brain. Ask about your cards, run the numbers (APR, payoff, balance transfers), or ask me to explain anything.",'bot');
+    var chips=['How much do I owe?','$5,000 at 22% APR paying $300/mo',"What's a good sign-up bonus?",'How does APR work?','Which card should I use next?','Is a balance transfer worth it?'];
+    document.getElementById('chat-chips').innerHTML=chips.map(function(c){return '<span class="chat-chip" onclick="chatAsk(&quot;'+c.replace(/"/g,'')+'&quot;)">'+c+'</span>';}).join('');
+  }
+  if(open)setTimeout(function(){var t=document.getElementById('chat-text');if(t)t.focus();},320);
+}
+(function(){var f=document.getElementById('chat-fab');if(f)f.addEventListener('click',function(){toggleChat();});})();
+
+/* ── Boot sweep (one-time neon scanline) ── */
+(function(){try{
+  if(window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  var s=document.createElement('div');s.className='boot-sweep';document.body.appendChild(s);
+  setTimeout(function(){if(s&&s.remove)s.remove();},1500);
+}catch(e){}})();
+
+/* ── Topbar SYSTEM STATUS HUD chip (reacts to utilization) ── */
+(function(){
+  function build(){
+    var bar=document.querySelector('.topbar-actions');
+    if(!bar||document.getElementById('sys-status'))return;
+    var chip=document.createElement('div');chip.id='sys-status';chip.className='sys-status';
+    chip.title='System status';
+    chip.innerHTML='<span class="dot"></span><span class="txt">BOOTING…</span>';
+    bar.insertBefore(chip,bar.firstChild);
+    update();
+  }
+  function update(){
+    var chip=document.getElementById('sys-status');if(!chip)return;
+    var txt=chip.querySelector('.txt');
+    var have=(typeof cards!=='undefined'&&cards)?cards:[];
+    var withLim=have.filter(function(c){return c.limit>0;});
+    var maxU=withLim.reduce(function(m,c){return Math.max(m,c.balance/c.limit*100);},0);
+    var totBal=have.reduce(function(a,c){return a+(c.balance||0);},0),totLim=have.reduce(function(a,c){return a+(c.limit||0);},0);
+    var util=totLim?totBal/totLim*100:0,state='ok',label='NOMINAL · UTIL '+util.toFixed(0)+'%';
+    if(!have.length){state='idle';label='NO CARDS LINKED';}
+    else if(maxU>=70){state='crit';label='CRITICAL · UTIL '+util.toFixed(0)+'%';}
+    else if(maxU>=30){state='warn';label='WATCH · UTIL '+util.toFixed(0)+'%';}
+    chip.setAttribute('data-state',state);if(txt)txt.textContent=label;
+  }
+  if(document.readyState!=='loading')build();else document.addEventListener('DOMContentLoaded',build);
+  setInterval(function(){build();update();},4000);
+  window._sysStatusUpdate=update;
+})();
+
+/* ── Esc closes the assistant ── */
+document.addEventListener('keydown',function(e){
+  if(e.key==='Escape'){var b=document.getElementById('chatbox');if(b&&b.classList.contains('open'))toggleChat(false);}
+});
+
+/* ── Dashboard flourishes: count-up hero, utilization ring, payoff confetti, sparklines ── */
+(function(){
+  if(typeof renderDashboard!=='function')return;
+  var _rd=renderDashboard, _lastOwed=null, _celebrated;
+  try{_celebrated=JSON.parse(localStorage.getItem('cardos_celebrated')||'[]');}catch(e){_celebrated=[];}
+  var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+  var _now=function(){return (window.performance&&performance.now)?performance.now():Date.now();};
+  function money(n){return '$'+Math.round(n||0).toLocaleString('en-US');}
+  function util(){var have=(typeof cards!=='undefined'&&cards)?cards:[];var b=0,l=0;have.forEach(function(c){b+=c.balance||0;l+=c.limit||0;});return l?b/l*100:0;}
+  function ringColor(u){return u>=70?'#FF3B6B':u>=30?'#F5C64B':'#39FF14';}
+
+  function countUp(el,target){
+    if(reduce){el.textContent=money(target);return;}
+    var t0=null,dur=900;
+    function step(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/dur),e=1-Math.pow(1-p,3);el.textContent=money(target*e);if(p<1)requestAnimationFrame(step);else el.textContent=money(target);}
+    requestAnimationFrame(step);
+  }
+  function injectRing(){
+    var line=document.querySelector('.summary-line');if(!line||line.querySelector('.util-ring'))return;
+    var u=util();var r=document.createElement('div');r.className='util-ring';r.title='Overall utilization';
+    r.style.setProperty('--ring-c',ringColor(u));r.innerHTML='<b>'+u.toFixed(0)+'%</b>';
+    line.appendChild(r);
+    if(reduce){r.style.setProperty('--p',u.toFixed(1));return;}
+    var t0=null;(function anim(ts){if(t0===null)t0=ts;var p=Math.min(1,(ts-t0)/900),e=1-Math.pow(1-p,3);r.style.setProperty('--p',(u*e).toFixed(1));if(p<1)requestAnimationFrame(anim);})(_now());
+  }
+  function confetti(){
+    if(reduce)return;
+    var colors=['#00E6FF','#FF2EC8','#39FF14','#F5C64B','#7FA8FF'];
+    for(var i=0;i<80;i++){(function(i){
+      var p=document.createElement('div');p.className='confetti-pc';
+      p.style.left=(Math.random()*100)+'vw';p.style.background=colors[i%colors.length];
+      p.style.animationDuration=(2.2+Math.random()*1.6)+'s';p.style.animationDelay=(Math.random()*0.5)+'s';
+      document.body.appendChild(p);setTimeout(function(){if(p&&p.remove)p.remove();},4600);
+    })(i);}
+  }
+  function checkPayoff(){
+    var have=(typeof cards!=='undefined'&&cards)?cards:[];var fired=false;
+    have.forEach(function(c){
+      if(c.limit>0&&(c.balance||0)<=0&&(c.status==='active'||!c.status)&&_celebrated.indexOf(c.id)<0){
+        _celebrated.push(c.id);fired=true;
+        try{if(typeof showToast==='function')showToast('🎉 '+(c.name||'Card')+' is paid off!');}catch(e){}
+      }
+    });
+    if(fired){try{localStorage.setItem('cardos_celebrated',JSON.stringify(_celebrated));}catch(e){}confetti();}
+  }
+  function recordSpark(){
+    var have=(typeof cards!=='undefined'&&cards)?cards:[];if(!have.length)return {};
+    var store;try{store=JSON.parse(localStorage.getItem('cardos_spark')||'{}');}catch(e){store={};}
+    var day=new Date().toISOString().slice(0,10);
+    have.forEach(function(c){
+      if(!c.id)return;var arr=store[c.id]||[];
+      if(!arr.length||arr[arr.length-1].d!==day)arr.push({d:day,b:c.balance||0});else arr[arr.length-1].b=c.balance||0;
+      store[c.id]=arr.slice(-30);
+    });
+    try{localStorage.setItem('cardos_spark',JSON.stringify(store));}catch(e){}
+    return store;
+  }
+  function sparkPath(vals,w,h){
+    var max=Math.max.apply(null,vals),min=Math.min.apply(null,vals),rng=(max-min)||1;
+    return vals.map(function(v,i){var x=i/(vals.length-1)*w,y=h-((v-min)/rng)*(h-4)-2;return (i?'L':'M')+x.toFixed(1)+' '+y.toFixed(1);}).join(' ');
+  }
+  function drawSparklines(store){
+    document.querySelectorAll('.rcard-wrap[data-spark]').forEach(function(w){
+      var id=w.getAttribute('data-spark');var svg=w.querySelector('.mini-spark');if(!svg)return;
+      var arr=(store&&store[id])||[];var vals=arr.map(function(p){return p.b;});
+      if(vals.length<2){svg.innerHTML='';return;}
+      var d=sparkPath(vals,120,20),last=vals[vals.length-1],first=vals[0];
+      var col=last>first?'#FF6E61':last<first?'#35E3A0':'#7FA8FF';
+      svg.setAttribute('viewBox','0 0 120 22');
+      svg.innerHTML='<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" opacity=".9"/>';
+    });
+  }
+  if(typeof renderCards==='function'){var _rc=renderCards;window.renderCards=function(){try{if(typeof normalizeDueDates==='function')normalizeDueDates();}catch(e){}return _rc.apply(this,arguments);};}
+  window.renderDashboard=function(){
+    try{if(typeof normalizeDueDates==='function')normalizeDueDates();}catch(e){}
+    var out=_rd.apply(this,arguments);
+    try{
+      var el=document.querySelector('.summary-owed-val');
+      if(el){var target=parseFloat((el.textContent||'').replace(/[^0-9.]/g,''))||0;
+        if(target!==_lastOwed){_lastOwed=target;countUp(el,target);}
+        injectRing();}
+      var store=recordSpark();drawSparklines(store);checkPayoff();
+    }catch(e){}
+    return out;
+  };
+})();
+
+/* ── Mobile bottom tab bar wiring ── */
+function mnavGo(page){ if(typeof nav==='function')nav(page); try{closeMobileSidebar();}catch(e){} }
+function _mnavSync(page){var m=document.getElementById('mnav');if(!m)return;m.querySelectorAll('button[data-page]').forEach(function(b){b.classList.toggle('on',b.getAttribute('data-page')===page);});}
+(function(){
+  if(typeof nav==='function'){var _n=nav;window.nav=function(name,btn){var r=_n.apply(this,arguments);try{_mnavSync(name);}catch(e){}return r;};}
+  try{_mnavSync(localStorage.getItem('cardos_last_page')||'dashboard');}catch(e){}
+  setInterval(function(){try{var b=document.getElementById('mn-alert-badge');if(!b||typeof buildAlerts!=='function')return;var u=buildAlerts().filter(function(a){return a.t==='urgent';}).length;b.style.display=u?'block':'none';}catch(e){}},4000);
+})();
 </script>
 </body>
 </html>

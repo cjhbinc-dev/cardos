@@ -348,3 +348,24 @@ Platinum: matches amex_biz_platinum ($895), NOT consumer Platinum** (guard block
 the name-only match). ROI proven: $895 fee, $1,409 trackable credits → net +$514.
 Fees are 2026 values with per-template `source`; **verify annually** — a wrong
 number is worse than a missing one. Not covered = honest empty + picker.
+
+## Cache map & the server-truth rule (Section 0.2)
+
+CardOS caches data in **3 layers today** (a 4th — the service worker — arrives with the PWA in Section 7 and obeys the same rule).
+
+**Layer 1 — Browser HTTP cache.** Static assets served by Netlify: `index.html` (the whole app, one file), `assets/*.png` (logo). Risk: a cached `index.html` can pin an old build. Rule for the SW/headers: **network-first on the HTML** so a deploy is never stuck behind a cached page; hashed/static assets may cache.
+
+**Layer 2 — localStorage** (paint accelerator only). Keys: `cardos4_cards`, `cardos4_conns`, `cardos4_offers`, `cardos4_tx`, `cardos4_history`, `cardos4_budgets`, `cardos4_bene`, `cardos4_config` (financial/working data); `cardos_last_page`, `cardos_dark`, `cardos_sidebar`, `cardos_celebrated`, `cardos_spark`, `cardos_link_events` (UI state); `sb-…-auth-token` (Supabase session). The financial keys are the **primary stale-data source**: the app seeds its in-memory arrays from them for an instant first paint, before the async Supabase fetch returns.
+
+**Layer 3 — In-memory module state.** Globals `cards`, `transactions`, `connections`, `offers`, `balanceHistory`, `budgets`, `_txIdMap`, `chartInstances`. **Every screen renders from these** (localStorage → memory → screens). Supabase load/`syncFromSupabase()` **replaces** these arrays and re-renders.
+
+**Where server-truth IS enforced:** the Plaid connection-delete path (`delConn`) is server-first — it calls `/plaid-remove-item`, aborts on failure (nothing deleted), then `syncFromSupabase()` re-fetches truth and re-renders. This is the correct pattern.
+
+**Where it ISN'T (known violations, ranked):**
+1. **localStorage-first paint window** — on load, screens paint from cached financial data before the Supabase fetch resolves; anything changed server-side (deleted card, new balance) shows stale for that window. This is the "deleted card still renders / stale balance" bug class.
+2. **Manual (non-Plaid) delete is optimistic** — `delConn` for manual connections deletes local arrays *then* Supabase; if the server delete fails, the row reappears on the next sync.
+3. **Partial re-render after mutation** — mutations re-render a fixed list (`renderDashboard/renderCards/renderTransactions/renderLedger`), not the *currently active* screen or Benefits/Reports; a non-refreshed screen can show stale until navigated (nav() re-renders from memory, so this is bounded).
+
+**THE RULE GOING FORWARD:** the server is authoritative; the screen always reflects what the server returned; nothing that can change is cached as truth. localStorage is a paint accelerator only and must be overwritten by server data the moment it arrives; mutations are server-first (call the server, only then touch memory/localStorage/DOM); after any load or mutation, re-render the **currently active** screen from server-fresh memory. The service worker (Section 7) must never cache API/Plaid/Supabase/authenticated responses.
+
+**Historical blank-screen bug (Section 0.1) — root cause & status.** Transactions and Card Benefits previously rendered blank due to a **temporal-dead-zone error**: a synchronous early-paint render fired before the `BENEFIT_TEMPLATES` `const` initialized (triggered once cards were cached in localStorage), threw, and left the content container empty. Fixed via the `_templates()` try/catch accessor. The black-chart-bars bug (Chart.js can't parse `var(--red)` CSS variables) additionally made Reports *look* broken; fixed via `resolveColor()`. **Both screens now render clean with zero console errors on cold load (verified on production).** The last-page-restore render runs inside an `async` function (after full module init), so it is TDZ-safe. **Recurrence rule:** no synchronous load-time render may read a top-level `const` defined later in the file — guard the access or define data consts above the render/init code.
