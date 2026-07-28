@@ -1802,6 +1802,15 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
       <div id="admin-feedback-list"><div style="color:var(--text3);font-size:13px">Loading…</div></div>
     </div>
 
+    <!-- Card art review queue -->
+    <div class="detail-section" style="margin-bottom:18px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+        <div class="sec-title" style="margin-bottom:0">Card Art Review <span id="cardart-count-badge" style="display:none;background:var(--red);color:#fff;font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px;margin-left:6px;vertical-align:middle"></span></div>
+        <button class="btn btn-sm" onclick="loadCardArtQueue()">↻ Refresh</button>
+      </div>
+      <div id="cardart-queue"><div style="color:var(--text3);font-size:13px">Loading…</div></div>
+    </div>
+
     <!-- Database tools (collapsed by default) -->
     <details style="margin-bottom:4px">
       <summary style="font-size:12px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:.06em;cursor:pointer;padding:10px 0;user-select:none">Database Tools</summary>
@@ -2811,10 +2820,14 @@ function cardVisual(c){
       <div class="rc-back-cta">Tap to flip back →</div>`;
   }
   const memberTxt=c.status!=='active'?(c.status==='sockdrawer'?'Sock drawer':'Closed'):'Member';
+  // Face priority: your own photo → approved community image → generated skin.
+  const _personalImg=(c.faceImage&&c.faceMode!=='generated')?c.faceImage:null;
+  const _sharedImg=(!c.faceImage&&c.faceMode!=='generated')?sharedArtFor(c):null;
+  const photoSrc=_personalImg||_sharedImg;
   let front;
-  if(c.faceImage&&c.faceMode!=='generated'){
-    // User-uploaded card photo on the front — scrim keeps the overlaid balance legible.
-    front=`<div class="rcard-face rcard-front rcard-photo" style="background-image:url('${c.faceImage}')">
+  if(photoSrc){
+    // Uploaded / approved community card photo on the front — scrim keeps the overlaid balance legible.
+    front=`<div class="rcard-face rcard-front rcard-photo" style="background-image:url('${photoSrc}')">
       <div class="rc-photo-scrim"></div>
       <div class="rc-bottom" style="z-index:2;color:#fff;text-shadow:0 1px 5px rgba(0,0,0,.75)">
         <div><div class="rc-name">${esc(c.name)}</div><div class="rc-thru" style="color:rgba(255,255,255,.75)">${memberTxt}</div></div>
@@ -3447,6 +3460,7 @@ function showDetail(cid){
     ${c.notes?`<div class="detail-section"><div class="sec-title">Notes</div><div class="notes-box">${c.notes}</div></div>`:''}
     ${c.rewardsNotes?`<div class="detail-section"><div class="sec-title">Rewards notes</div><div class="notes-box">${c.rewardsNotes}</div></div>`:''}
     <div class="detail-section"><div class="sec-title">Card image</div>
+      ${(!c.faceImage&&sharedArtFor(c))?`<div style="font-size:12px;color:var(--green);margin-bottom:9px">🌐 A <strong>community image</strong> is being shown for this card — no need to hunt one down. Upload your own to override, or use the generated skin.</div>`:''}
       <div style="font-size:11.5px;color:var(--text2);line-height:1.65;margin-bottom:10px">
         <strong>Where to get a photo of this card:</strong><br>
         1. <strong>Your bank app</strong> — screenshot the card, crop to just the card (usually shows only the last 4).<br>
@@ -3459,9 +3473,10 @@ function showDetail(cid){
         ${c.faceImage?(c.faceMode==='generated'
           ?`<button class="btn btn-sm" onclick="setFaceMode('${c.id}','photo')">Show my photo</button>`
           :`<button class="btn btn-sm" onclick="setFaceMode('${c.id}','generated')">Use generated skin</button>`):''}
+        ${c.faceImage?`<button class="btn btn-sm" onclick="submitCardArt('${c.id}')">${c.artSubmitted?'✓ Submitted to library':'🌐 Share to community'}</button>`:''}
         ${c.faceImage?`<button class="btn btn-sm btn-danger" onclick="removeCardImage('${c.id}')">Remove photo</button>`:''}
       </div>
-      ${c.faceImage?`<div style="font-size:11px;color:var(--text3);margin-top:7px">Showing: <strong>${c.faceMode==='generated'?'generated skin (matched to your photo colors)':'your photo'}</strong> — toggle any time, your photo stays saved.</div>`:''}
+      ${c.faceImage?`<div style="font-size:11px;color:var(--text3);margin-top:7px">Showing: <strong>${c.faceMode==='generated'?'generated skin (matched to your photo colors)':'your photo'}</strong> — toggle any time, your photo stays saved. <strong>Share to community</strong> sends it (after admin review) to everyone with this card.</div>`:''}
     </div>
     <div class="modal-footer"><button class="btn btn-sm" onclick="this.closest('.overlay').remove()">Close</button><button class="btn btn-sm btn-primary" onclick="this.closest('.overlay').remove();openModal('card-edit','${c.id}')">Edit card</button></div>
   </div>`;
@@ -4091,11 +4106,35 @@ const FEATURE_DEFS=[
   {key:'canViewBudgets',     label:'Budgets',         desc:'View monthly budget tracking'},
 ];
 
+async function loadCardArtQueue(){
+  const el=document.getElementById('cardart-queue'); if(!el) return;
+  try{
+    const r=await fetch('/.netlify/functions/card-art?pending=1',{headers:getAuthHeaders()});
+    const j=await r.json();
+    const badge=document.getElementById('cardart-count-badge');
+    if(j.missing_table){el.innerHTML='<div style="color:var(--text3);font-size:13px">Run the card_art SQL to enable this.</div>';return;}
+    const p=j.pending||[];
+    if(badge){if(p.length){badge.textContent=p.length;badge.style.display='inline';}else badge.style.display='none';}
+    if(!p.length){el.innerHTML='<div style="color:var(--text3);font-size:13px;padding:8px 0">No submissions to review.</div>';return;}
+    el.innerHTML=p.map(x=>`<div style="display:flex;gap:12px;align-items:center;padding:10px;border:1px solid var(--border);border-radius:10px;margin-bottom:8px">
+      <img src="${x.image}" style="width:130px;height:82px;object-fit:cover;border-radius:8px;flex-shrink:0;background:#0b1524">
+      <div style="flex:1;min-width:0"><div style="font-weight:600;font-size:13px">${esc(x.product_name||x.product_key)}</div>
+        <div style="font-size:11px;color:var(--text3);margin-top:2px">${esc(x.issuer||'')} · key: <code>${esc(x.product_key)}</code></div>
+        <div style="font-size:11px;color:var(--u-high);margin-top:4px">Check: no full number / CVV visible before approving.</div></div>
+      <button class="btn btn-sm btn-success" onclick="reviewCardArt('${x.id}','approved')">Approve</button>
+      <button class="btn btn-sm btn-danger" onclick="reviewCardArt('${x.id}','rejected')">Reject</button></div>`).join('');
+  }catch(e){el.innerHTML='<div style="color:var(--red);font-size:13px">Error loading queue</div>';}
+}
+function reviewCardArt(id,status){
+  fetch('/.netlify/functions/card-art',{method:'POST',headers:Object.assign({'Content-Type':'application/json'},getAuthHeaders()),body:JSON.stringify({action:'set_status',id:id,status:status})})
+    .then(r=>r.json()).then(j=>{ if(j&&j.ok){showToast(status==='approved'?'Approved ✓ — now visible to everyone with this card':'Rejected');loadCardArtQueue();try{loadSharedArt();}catch(e){}} else showToast('Failed'); }).catch(()=>showToast('Network error'));
+}
 async function renderAdminPanel() {
   const userLine=document.getElementById('admin-user-line');
   if(userLine&&_currentUser)userLine.textContent='Signed in as '+_currentUser.email;
 
   loadFeedback();
+  loadCardArtQueue();
   const [reqRes,usersRes]=await Promise.all([
     fetch('/.netlify/functions/list-requests',{headers:getAuthHeaders()}).then(r=>r.ok?r.json():null).catch(()=>null),
     fetch('/.netlify/functions/list-users',   {headers:getAuthHeaders()}).then(r=>r.ok?r.json():null).catch(()=>null),
@@ -7037,6 +7076,8 @@ function _mnavSync(page){var m=document.getElementById('mnav');if(!m)return;m.qu
   if(typeof nav==='function'){var _n=nav;window.nav=function(name,btn){var r=_n.apply(this,arguments);try{_mnavSync(name);}catch(e){}return r;};}
   try{_mnavSync(localStorage.getItem('cardos_last_page')||'dashboard');}catch(e){}
   setInterval(function(){try{var b=document.getElementById('mn-alert-badge');if(!b||typeof buildAlerts!=='function')return;var u=buildAlerts().filter(function(a){return a.t==='urgent';}).length;b.style.display=u?'block':'none';}catch(e){}},4000);
+  // Load approved community card art once cards are available.
+  (function(){var _t=0,_iv=setInterval(function(){_t++;if(typeof cards!=='undefined'&&cards&&cards.length){clearInterval(_iv);try{loadSharedArt();}catch(e){}}else if(_t>18){clearInterval(_iv);}},1000);})();
 })();
 </script>
 </body>
