@@ -3,6 +3,7 @@
  * POST { userId } — requires Authorization: Bearer <admin-jwt>
  */
 const { createClient } = require('@supabase/supabase-js');
+const { getPlaidClient, plaidErrorInfo } = require('./lib/plaid-client');
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -42,8 +43,41 @@ exports.handler = async (event) => {
   if (!userId) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: 'userId is required' }) };
   if (userId === caller.id) return { statusCode: 400, headers: CORS, body: JSON.stringify({ error: "You can't delete your own account" }) };
 
+  // 0. Release every Plaid Item this user owns BEFORE deleting the tokens.
+  //    Each live Item bills monthly; deleting the enrollment row without calling
+  //    /item/remove first would strand an unstoppable charge.
+  const plaidRemoved = [];
+  const plaidConfigured = !!(process.env.PLAID_CLIENT_ID && process.env.PLAID_SECRET);
+  try {
+    const { data: enrollRows, error: enrErr } = await supabase
+      .from('enrollments').select('id, access_token').eq('user_id', userId);
+    if (enrErr) {
+      plaidRemoved.push('lookup error: ' + enrErr.message);
+    } else if ((enrollRows || []).length && plaidConfigured) {
+      const plaid = getPlaidClient();
+      for (const row of enrollRows) {
+        if (!row.access_token) { plaidRemoved.push((row.id || '?') + ': no token'); continue; }
+        try {
+          await plaid.itemRemove({ access_token: row.access_token });
+          plaidRemoved.push((row.id || '?') + ': removed');
+        } catch (rmErr) {
+          plaidErrorInfo('/item/remove (delete-user)', rmErr);
+          // Abort the delete so the token isn't lost while the Item is still billing.
+          return { statusCode: 502, headers: CORS, body: JSON.stringify({
+            error: 'Could not release a Plaid connection (still billing) — deletion aborted so it can be retried.',
+            item: row.id, plaidRemoved,
+          }) };
+        }
+      }
+    } else if ((enrollRows || []).length && !plaidConfigured) {
+      return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Plaid not configured — cannot release live Items; deletion aborted.' }) };
+    }
+  } catch (e) {
+    return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: 'Plaid cleanup failed: ' + e.message }) };
+  }
+
   // 1. Delete all data rows for this user
-  const deleted = {};
+  const deleted = { plaidItems: plaidRemoved };
   for (const table of DATA_TABLES) {
     try {
       const { count, error } = await supabase

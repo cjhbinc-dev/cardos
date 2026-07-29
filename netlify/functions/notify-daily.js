@@ -213,9 +213,24 @@ async function sendAlertsForUser(supabase, userEmail, cards, gmailCtx) {
   return sent;
 }
 
-exports.handler = async () => {
+// A genuine Netlify scheduled invocation POSTs a JSON body containing next_run.
+// Any other (manual/HTTP) trigger must present ?secret=MIGRATION_SECRET — the same
+// gate the other crons (backup-daily, plaid-daily-sync) use. Without it this
+// endpoint is a public button that emails every user and reveals who has alerts.
+function isAuthorizedInvocation(event) {
+  let scheduled = false;
+  try { scheduled = !!JSON.parse(event?.body || '{}').next_run; } catch (_) {}
+  if (scheduled) return true;
+  const provided = (event?.queryStringParameters || {}).secret;
+  return !!(provided && process.env.MIGRATION_SECRET && provided === process.env.MIGRATION_SECRET);
+}
+
+exports.handler = async (event) => {
   if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_KEY) {
     return { statusCode: 500, body: 'Supabase not configured' };
+  }
+  if (!isAuthorizedInvocation(event)) {
+    return { statusCode: 401, body: JSON.stringify({ error: 'Unauthorized' }) };
   }
 
   const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_KEY);
@@ -224,13 +239,10 @@ exports.handler = async () => {
   // Get all users
   const { data: usersData, error: usersErr } = await supabase.auth.admin.listUsers();
   if (usersErr) {
+    // Do NOT fall back to emailing all cards to one inbox — that mixes users'
+    // data. Fail the run instead so it can be retried.
     console.error('Failed to list users:', usersErr.message);
-    // Fallback: send to NOTIFICATION_EMAIL with all cards
-    const TO = process.env.NOTIFICATION_EMAIL || 'cj.hbinc@gmail.com';
-    const { data: cardRows } = await supabase.from('cards').select('data');
-    const cards = (cardRows || []).map(r => r.data).filter(Boolean);
-    const sent = await sendAlertsForUser(supabase, TO, cards, gmailCtx);
-    return { statusCode: 200, body: JSON.stringify({ sent: sent.length, triggers: sent }) };
+    return { statusCode: 500, body: JSON.stringify({ error: 'Could not list users', detail: usersErr.message }) };
   }
 
   const users = usersData?.users || [];
