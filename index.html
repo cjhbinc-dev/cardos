@@ -1108,10 +1108,18 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 @media(max-width:768px){
   .mnav{display:flex}
   .main{padding-bottom:0}
-  .page{padding-bottom:78px!important}
-  .fab{bottom:calc(74px + env(safe-area-inset-bottom))!important}
-  .chatbox{bottom:calc(140px + env(safe-area-inset-bottom))!important;max-height:60vh}
-  .chatbox.open{height:min(470px,60vh)}
+  /* Clear BOTH the fixed bottom bar (~60px) AND the floating assistant so the
+     last card's Detail/Edit buttons are never trapped underneath. */
+  .page{padding-bottom:132px!important}
+  .fab{right:16px;bottom:calc(70px + env(safe-area-inset-bottom))!important;width:50px;height:50px}
+  .fab svg{width:21px;height:21px}
+  .chatbox{right:16px;bottom:calc(130px + env(safe-area-inset-bottom))!important;max-height:58vh}
+  .chatbox.open{height:min(460px,58vh)}
+  /* Declutter the top bar so labels don't collide on a narrow screen */
+  #topbar-user-email{display:none!important}
+  .topbar-actions{gap:5px}
+  /* Eyes peek less into the header on phones */
+  .cyber-eyes{top:-24px;width:116px}
 }
 
 /* ══ Card grid ══ */
