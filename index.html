@@ -1923,7 +1923,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   <svg viewBox="0 0 24 24" fill="none"><path d="M12 3C6.5 3 2 6.9 2 11.7c0 2.2 1 4.2 2.6 5.7L4 21l4-1.6c1.2.4 2.6.6 4 .6 5.5 0 10-3.9 10-8.7S17.5 3 12 3z" stroke="currentColor" stroke-width="1.8" fill="rgba(0,0,0,.12)"/><circle cx="8.5" cy="11.5" r="1.2" fill="currentColor"/><circle cx="12" cy="11.5" r="1.2" fill="currentColor"/><circle cx="15.5" cy="11.5" r="1.2" fill="currentColor"/></svg>
 </button>
 <div class="chatbox" id="chatbox">
-  <div class="chat-hd"><span class="d"></span><b>CardOS Assistant</b><span style="color:#5A7E92">· online</span><span class="x" onclick="toggleChat(false)">✕</span></div>
+  <div class="chat-hd"><span class="d"></span><b>CardOS Assistant</b><span style="color:#5A7E92">· online</span><button class="x" type="button" aria-label="Close assistant" onclick="toggleChat(false)" style="background:none;border:none;font:inherit;color:inherit;cursor:pointer">✕</button></div>
   <div class="chat-body" id="chat-body"></div>
   <div class="chat-chips" id="chat-chips"></div>
   <div class="chat-input"><input id="chat-text" placeholder="Ask about your cards…" onkeydown="if(event.key==='Enter')chatSend()"><button class="btn btn-sm btn-primary" onclick="chatSend()">Send</button></div>
@@ -2359,10 +2359,17 @@ let calYear = TODAY.getFullYear(), calMonth = TODAY.getMonth();
 let chartInstances = {};
 
 function save(){
-  localStorage.setItem('cardos4_cards',JSON.stringify(cards));
-  localStorage.setItem('cardos4_conns',JSON.stringify(connections));
-  localStorage.setItem('cardos4_offers',JSON.stringify(offers));
-  localStorage.setItem('cardos4_history',JSON.stringify(balanceHistory));
+  try{
+    localStorage.setItem('cardos4_cards',JSON.stringify(cards));
+    localStorage.setItem('cardos4_conns',JSON.stringify(connections));
+    localStorage.setItem('cardos4_offers',JSON.stringify(offers));
+    localStorage.setItem('cardos4_history',JSON.stringify(balanceHistory));
+  }catch(e){
+    // Quota exceeded (usually a large card photo). Must NOT abort the Supabase
+    // upsert below — that's the authoritative store. Warn once.
+    console.warn('localStorage save failed (quota?):',e&&e.name);
+    if(!window._quotaWarned){window._quotaWarned=true;try{showToast('Local storage is full (large card photos). Your data still saves to the cloud — consider smaller images.');}catch(_){}}
+  }
   const sb=getSupabase();
   const uid=_currentUser?.id;
   if(sb&&uid){
@@ -3331,7 +3338,7 @@ function toggleConnGroup(gi){
 
 function renderConns(){
   const el=document.getElementById('conn-list');
-  if(!connections.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔌</span>No connections yet. Add cards manually or via Gmail sync.</div>';return;}
+  if(!connections.length){el.innerHTML='<div class="empty"><span class="empty-icon">🔌</span>No connections yet. Add cards manually or connect a bank.</div>';return;}
 
   // Show dedup button if duplicates exist
   const dupWrap=document.getElementById('dedup-btn-wrap');
@@ -3636,7 +3643,7 @@ function openModal(type,id){
         <div class="plaid-card" style="cursor:pointer" onclick="closeModal();openModal('conn-manual')">
           <div style="display:flex;align-items:center;gap:12px">
             <div style="width:36px;height:36px;border-radius:var(--r);background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:16px">✏️</div>
-            <div><div style="font-size:14px;font-weight:600">Manual entry</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Enter and update card data yourself · Always works · No auth required</div></div>
+            <div><div style="font-size:14px;font-weight:600">Manual entry</div><div style="font-size:12px;color:var(--text2);margin-top:2px">Enter and update card data yourself · Always works · No bank login needed</div></div>
             <div style="margin-left:auto;font-size:18px;color:var(--text3)">→</div>
           </div>
         </div>
