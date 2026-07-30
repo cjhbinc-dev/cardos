@@ -1550,7 +1550,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
     <div>
       <div style="font-size:18px;font-weight:700;color:var(--text)">Enhanced Analytics</div>
-      <div style="font-size:13px;color:var(--text2);margin-top:2px">Monthly spend · Top merchants · Rewards estimates · Net worth snapshot</div>
+      <div style="font-size:13px;color:var(--text2);margin-top:2px">Monthly spend · Top merchants · Rewards estimates · Credit capacity snapshot</div>
     </div>
     <div style="display:flex;gap:8px">
       <button class="btn btn-sm" onclick="exportEnhancedCsv()">↓ Export CSV</button>
@@ -1583,7 +1583,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
     </div>
   </div>
   <div class="chart-card">
-    <div class="chart-title">Net worth snapshot</div>
+    <div class="chart-title">Credit capacity snapshot</div>
     <div class="chart-sub">Total credit available vs. total balance owed across all active cards</div>
     <div id="rpt-networth"></div>
   </div>
@@ -1669,8 +1669,8 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
 
     <!-- Credit Score Impact -->
     <div class="chart-card">
-      <div class="chart-title">Credit Score Impact Estimator</div>
-      <div class="chart-sub">Estimate score impact of paying down a card</div>
+      <div class="chart-title">Utilization Impact Estimator</div>
+      <div class="chart-sub">See how paying down a card changes your utilization</div>
       <div class="form-grid" style="grid-template-columns:1fr;gap:10px;margin-bottom:14px">
         <div class="fg"><label>Current score (estimate)</label><input id="cs-score" type="number" placeholder="720" oninput="calcScoreImpact()"></div>
         <div class="fg"><label>Total credit limit ($)</label><input id="cs-lim" type="number" placeholder="114000" oninput="calcScoreImpact()"></div>
@@ -1681,7 +1681,7 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
           <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--purple);margin-bottom:4px">Old util</div><div id="cs-old-util" style="font-size:20px;font-weight:800;color:var(--text)"></div></div>
           <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--green);margin-bottom:4px">New util</div><div id="cs-new-util" style="font-size:20px;font-weight:800;color:var(--text)"></div></div>
-          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:4px">Est. impact</div><div id="cs-impact" style="font-size:20px;font-weight:800;color:var(--text)"></div></div>
+          <div><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-bottom:4px">Util change</div><div id="cs-impact" style="font-size:20px;font-weight:800;color:var(--text)"></div></div>
         </div>
         <div id="cs-note" style="font-size:12px;color:var(--text2);margin-top:8px;line-height:1.6"></div>
       </div>
@@ -2022,8 +2022,8 @@ async function initAuth() {
       const incomingUid = session?.user?.id;
       const existingUid = _currentUser?.id;
       if (incomingUid && existingUid && incomingUid !== existingUid) {
-        cards = []; connections = []; offers = []; transactions = [];
-        ['cardos4_cards','cardos4_conns','cardos4_offers','cardos4_history','cardos4_tx'].forEach(k => localStorage.removeItem(k));
+        cards = []; connections = []; offers = []; transactions = []; budgets = {}; benefitUsage = {};
+        ['cardos4_cards','cardos4_conns','cardos4_offers','cardos4_history','cardos4_tx','cardos4_budgets','cardos4_bene'].forEach(k => localStorage.removeItem(k));
       }
       _currentUser = session?.user || null;
       _authSession  = session || null;
@@ -2042,8 +2042,8 @@ async function initAuth() {
         // No session: SIGNED_OUT, or INITIAL_SESSION restored nothing.
         // Either way the login gate must be visible — a null-session
         // INITIAL_SESSION used to fall through and leave the app shell exposed.
-        cards = []; connections = []; offers = []; transactions = [];
-        ['cardos4_cards','cardos4_conns','cardos4_offers','cardos4_history','cardos4_tx'].forEach(k => localStorage.removeItem(k));
+        cards = []; connections = []; offers = []; transactions = []; budgets = {}; benefitUsage = {};
+        ['cardos4_cards','cardos4_conns','cardos4_offers','cardos4_history','cardos4_tx','cardos4_budgets','cardos4_bene'].forEach(k => localStorage.removeItem(k));
         gate.classList.remove('hidden');
         showAuthPanel('login');
         renderDashboard();
@@ -3080,16 +3080,16 @@ function exportICal(){
     if(c.status==='closed')return;
     if(c.statementClose){
       const d=c.statementClose.replace(/-/g,'');
-      ical+=`BEGIN:VEVENT\r\nUID:close-${c.id}@cardos\r\nDTSTAMP:${icalNow()}\r\nDTSTART;VALUE=DATE:${d}\r\nSUMMARY:💳 ${c.name} Statement Closes\r\nDESCRIPTION:Statement closing date for ${c.name} ••${c.last4}. Balance: ${fmt(c.balance)}. Utilization: ${pct(cv(c).util)}.\r\nCATEGORIES:Credit Card\r\nEND:VEVENT\r\n`;
+      ical+=`BEGIN:VEVENT\r\nUID:close-${c.id}@cardos\r\nDTSTAMP:${icalNow()}\r\nDTSTART;VALUE=DATE:${d}\r\nSUMMARY:💳 ${icsEsc(c.name)} Statement Closes\r\nDESCRIPTION:Statement closing date for ${icsEsc(c.name)} ••${icsEsc(c.last4)}. Balance: ${fmt(c.balance)}. Utilization: ${pct(cv(c).util)}.\r\nCATEGORIES:Credit Card\r\nEND:VEVENT\r\n`;
     }
     if(c.dueDate){
       const d=c.dueDate.replace(/-/g,'');
-      ical+=`BEGIN:VEVENT\r\nUID:due-${c.id}@cardos\r\nDTSTAMP:${icalNow()}\r\nDTSTART;VALUE=DATE:${d}\r\nSUMMARY:💰 ${c.name} Payment Due\r\nDESCRIPTION:Payment due for ${c.name} ••${c.last4}. Minimum payment: ${fmt(c.minPayment)}. Balance: ${fmt(c.balance)}. Autopay: ${c.autopay?'Yes':'No'}.\r\nCATEGORIES:Credit Card\r\nALARM:TRIGGER:-P3D\r\nEND:VEVENT\r\n`;
+      ical+=`BEGIN:VEVENT\r\nUID:due-${c.id}@cardos\r\nDTSTAMP:${icalNow()}\r\nDTSTART;VALUE=DATE:${d}\r\nSUMMARY:💰 ${icsEsc(c.name)} Payment Due\r\nDESCRIPTION:Payment due for ${icsEsc(c.name)} ••${icsEsc(c.last4)}. Minimum payment: ${fmt(c.minPayment)}. Balance: ${fmt(c.balance)}. Autopay: ${c.autopay?'Yes':'No'}.\r\nCATEGORIES:Credit Card\r\nALARM:TRIGGER:-P3D\r\nEND:VEVENT\r\n`;
     }
     if(c.annualFee&&c.annualFeeMonth){
       const fy=new Date(TODAY.getFullYear(),c.annualFeeMonth-1,1);
       const d=fy.toISOString().slice(0,10).replace(/-/g,'');
-      ical+=`BEGIN:VEVENT\r\nUID:fee-${c.id}@cardos\r\nDTSTAMP:${icalNow()}\r\nDTSTART;VALUE=DATE:${d}\r\nSUMMARY:💸 ${c.name} Annual Fee Due (${fmt(c.annualFee)})\r\nDESCRIPTION:Annual fee of ${fmt(c.annualFee)} for ${c.name} ••${c.last4}. Call for retention offer before this date.\r\nCATEGORIES:Credit Card\r\nEND:VEVENT\r\n`;
+      ical+=`BEGIN:VEVENT\r\nUID:fee-${c.id}@cardos\r\nDTSTAMP:${icalNow()}\r\nDTSTART;VALUE=DATE:${d}\r\nSUMMARY:💸 ${icsEsc(c.name)} Annual Fee Due (${fmt(c.annualFee)})\r\nDESCRIPTION:Annual fee of ${fmt(c.annualFee)} for ${icsEsc(c.name)} ••${icsEsc(c.last4)}. Call for retention offer before this date.\r\nCATEGORIES:Credit Card\r\nEND:VEVENT\r\n`;
     }
   });
   ical+='END:VCALENDAR';
@@ -3097,6 +3097,8 @@ function exportICal(){
   const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='CardOS-dates.ics';a.click();
 }
 function icalNow(){const d=new Date();return d.toISOString().replace(/[-:]/g,'').slice(0,15)+'Z';}
+// RFC 5545 text escaping — a crafted card name must not inject extra ICS properties/events.
+function icsEsc(s){return String(s==null?'':s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r\n|\r|\n/g,'\\n');}
 
 // ═══════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════
@@ -4011,6 +4013,9 @@ async function dedupConnections(){
 function setOffer(id,st){const o=offers.find(x=>x.id===id);if(o){o.status=st;save();renderOffers();}}
 function closeModal(){document.querySelectorAll('.overlay').forEach(m=>m.remove());}
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+// CSV cell: neutralize spreadsheet formula injection (=,+,-,@ leading) without breaking
+// real numbers, then quote/escape cells containing quotes, commas, or newlines.
+function csvCell(v){let s=v==null?'':String(v);if(/^[=+\-@\t\r]/.test(s)&&!/^-?\d+(\.\d+)?$/.test(s))s="'"+s;return /[",\r\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s;}
 
 async function testSupabase(){
   const url=document.getElementById('cfg-supa-url')?.value;const key=document.getElementById('cfg-supa-key')?.value;
@@ -4600,22 +4605,37 @@ function startAmexSync() {
 
   // Start listening for the postMessage from the bookmarklet
   _amexMessageListener = async (event) => {
-    // Accept messages from americanexpress.com or same origin (localhost/testing)
+    // SECURITY: exact-origin match only. The old startsWith() accepted
+    // americanexpress.com.attacker.example. Also require the message to come from
+    // the Amex tab WE opened (event.source), and never trust the payload's shape.
     const allowed = ['https://www.americanexpress.com', 'https://americanexpress.com', location.origin];
-    if (!allowed.some(o => event.origin.startsWith(o.split('*')[0]))) return;
+    if (!allowed.includes(event.origin)) return;
+    if (_amexSyncWindow && event.source !== _amexSyncWindow) return;
     if (!event.data || event.data.type !== 'cardos-amex-offers') return;
 
     window.removeEventListener('message', _amexMessageListener);
     _amexMessageListener = null;
 
-    const offers = event.data.offers || [];
-    if (!offers.length) { showToast('No offers received.'); return; }
+    // Validate + sanitize every field before it is stored or rendered.
+    const clean = (Array.isArray(event.data.offers) ? event.data.offers : []).slice(0, 300).map(o => {
+      if (!o || typeof o !== 'object') return null;
+      const merchant = String(o.merchant || '').replace(/[<>]/g, '').trim().slice(0, 80);
+      if (!merchant) return null;
+      let savings = Number(o.savings); if (!isFinite(savings) || savings < 0 || savings > 100000) savings = 0;
+      const description = String(o.description || '').replace(/[<>]/g, '').trim().slice(0, 200);
+      const status = (o.status === 'added') ? 'added' : 'available';
+      let expiresDate = null;
+      if (typeof o.expiresDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.expiresDate)) expiresDate = o.expiresDate;
+      return { merchant, savings, description, status, expiresDate };
+    }).filter(Boolean);
+
+    if (!clean.length) { showToast('No offers received.'); return; }
 
     // Update waiting indicator
     const waitEl = document.getElementById('amex-waiting');
-    if (waitEl) { waitEl.innerHTML = `<span style="color:var(--green)">✓ Received ${offers.length} offers — saving…</span>`; }
+    if (waitEl) { waitEl.innerHTML = `<span style="color:var(--green)">✓ Received ${clean.length} offers — saving…</span>`; }
 
-    await saveAmexOffers(offers);
+    await saveAmexOffers(clean);
   };
 
   window.addEventListener('message', _amexMessageListener);
@@ -4884,9 +4904,8 @@ function showToast(msg,ms=3000){
 }
 
 // ─── CALENDAR HELPERS ────────────────────────────────────
-const CAL_FEED='https://cardos-manager.netlify.app/.netlify/functions/calendar-feed';
-function copyCalFeed(){navigator.clipboard.writeText(CAL_FEED).then(()=>showToast('Feed URL copied to clipboard'));}
-function subscribeGoogleCal(){window.open('https://calendar.google.com/calendar/r?cid='+encodeURIComponent(CAL_FEED),'_blank');}
+// Live calendar-feed subscription is disabled server-side (returns 403) until it's
+// rebuilt with per-user signed feed tokens. The .ics download (exportICal) still works.
 
 // ═══════════════════════════════════════════════════════
 // EXPORT: CSV
@@ -4902,7 +4921,7 @@ function exportCardsCSV(){
       c.annualFee||0,c.autopay?'Yes':'No',c.syncMethod,c.rewardsType||''
     ].map(x=>'"'+(String(x).replace(/"/g,'""'))+'"');
   });
-  const csv=[cols.join(','),...rows.map(r=>r.join(','))].join('\r\n');
+  const csv=[cols.map(csvCell).join(','),...rows.map(r=>r.map(csvCell).join(','))].join('\r\n');
   const a=document.createElement('a');
   a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download='CardOS-cards-'+new Date().toISOString().slice(0,10)+'.csv';
@@ -4985,18 +5004,20 @@ function calcScoreImpact(){
   const bal=parseFloat(document.getElementById('cs-bal')?.value)||0;
   const newBal=parseFloat(document.getElementById('cs-new')?.value)||0;
   const el=document.getElementById('cs-result');
-  if(!score||!lim||!el)return;
+  if(!lim||!el)return;
   const oldUtil=lim>0?((bal/lim)*100):0;
   const newUtil=lim>0?((newBal/lim)*100):0;
-  // Simplified impact model: ~1pt per 1% util reduction, scaled by score range
+  // No fabricated point estimate. A "0.9 pts per 1% util" model isn't supportable —
+  // score impact can't be predicted from utilization alone. Show only the factual
+  // utilization change and the tier it moves you into.
   const utilDrop=oldUtil-newUtil;
-  const impact=Math.round(utilDrop*0.9);
   document.getElementById('cs-old-util').textContent=oldUtil.toFixed(1)+'%';
   document.getElementById('cs-new-util').textContent=newUtil.toFixed(1)+'%';
-  document.getElementById('cs-impact').textContent=(impact>0?'+':'')+impact+' pts';
-  document.getElementById('cs-impact').style.color=impact>0?'var(--green)':impact<0?'var(--red)':'var(--text)';
+  const impEl=document.getElementById('cs-impact');
+  impEl.textContent=(utilDrop>0?'−':utilDrop<0?'+':'')+Math.abs(utilDrop).toFixed(1)+' pts';
+  impEl.style.color=utilDrop>0?'var(--green)':utilDrop<0?'var(--red)':'var(--text)';
   const tier=newUtil<10?'Excellent (under 10%)':newUtil<30?'Good (under 30%)':newUtil<50?'Fair (under 50%)':'High — prioritize paydown';
-  document.getElementById('cs-note').textContent=`New utilization tier: ${tier}. Estimate is approximate — actual score impact varies by full credit profile.`;
+  document.getElementById('cs-note').textContent=`New utilization tier: ${tier}. Lower utilization generally helps, but the exact score change can't be predicted from utilization alone — it depends on your full profile (payment history, credit age, mix, and inquiries).`;
   el.style.display='block';
 }
 
@@ -5218,7 +5239,7 @@ function exportLedgerCsv(){
   const txs=transactions.filter(t=>t.tx_date?.startsWith(selMonth)).sort((a,b)=>b.tx_date?.localeCompare(a.tx_date));
   const cols=['Date','Merchant','Amount','Type','Category','Card','Tags','Notes'];
   const rows=txs.map(t=>{const c=cards.find(x=>x.id===t.card_id);return[t.tx_date,t.description||'',Math.abs(t.amount).toFixed(2),t.amount>0?'Charge':'Credit',getCat(txCat(t)).label,c?c.name+' ••'+c.last4:'',(t.tags||[]).join(';'),t.notes||''].map(x=>'"'+(String(x).replace(/"/g,'""'))+'"');});
-  const csv=[cols.join(','),...rows.map(r=>r.join(','))].join('\r\n');
+  const csv=[cols.map(csvCell).join(','),...rows.map(r=>r.map(csvCell).join(','))].join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='CardOS-ledger-'+selMonth+'.csv';a.click();showToast('Exported ✓');
 }
 
@@ -5641,7 +5662,7 @@ function renderEnhancedReports(){
     } else {document.getElementById('rpt-rewards').innerHTML=noData;}
   }
 
-  // Net worth snapshot (uses card balance data — always available)
+  // Credit capacity snapshot (uses card balance data — always available)
   const ac=cards.filter(c=>c.status!=='closed');
   const totL=ac.reduce((s,c)=>s+c.limit,0);
   const totB=ac.reduce((s,c)=>s+c.balance,0);
@@ -5663,7 +5684,7 @@ function exportEnhancedCsv(){
   const txs=transactions.filter(t=>t.tx_date?.startsWith(yr+'')&&t.amount>0).sort((a,b)=>b.tx_date.localeCompare(a.tx_date));
   const cols=['Date','Merchant','Amount','Category','Card'];
   const rows=txs.map(t=>{const c=cards.find(x=>x.id===t.card_id);return[t.tx_date,t.description||'',t.amount.toFixed(2),getCat(txCat(t)).label,c?c.name+' ••'+c.last4:''].map(x=>'"'+(String(x).replace(/"/g,'""'))+'"');});
-  const csv=[cols.join(','),...rows.map(r=>r.join(','))].join('\r\n');
+  const csv=[cols.map(csvCell).join(','),...rows.map(r=>r.map(csvCell).join(','))].join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download='CardOS-report-'+yr+'.csv';a.click();
   showToast('Report exported ✓');
@@ -5707,11 +5728,16 @@ function getCat(k){return TX_CATS[k]||TX_CATS.other;}
 async function loadTransactionsFromSupabase(){
   const sb=getSupabase();if(!sb)return;
   try{
-    const{data,error}=await sb.from('transactions').select('data').order('tx_date',{ascending:false}).limit(500);
+    const TX_LIMIT=5000;
+    const{data,error}=await sb.from('transactions').select('data').order('tx_date',{ascending:false}).limit(TX_LIMIT);
     // Accept empty results — a server with 0 rows must clear local ghosts,
     // otherwise deleted transactions render forever from localStorage.
     if(!error&&data!=null){
       transactions=data.map(r=>r.data).filter(Boolean);
+      // Warn if history is truncated — budgets/reports/ledger would otherwise
+      // silently understate totals with no indication the data is partial.
+      window._txTruncated = data.length>=TX_LIMIT;
+      if(window._txTruncated && !window._txTruncWarned){ window._txTruncWarned=true; try{showToast('Showing your most recent '+TX_LIMIT.toLocaleString()+' transactions — older history isn’t included in totals.');}catch(_){} }
       localStorage.setItem('cardos4_tx',JSON.stringify(transactions));
     }
   }catch(e){console.warn('tx load:',e);}
@@ -5897,7 +5923,7 @@ function exportTransactionsCsv(){
       getCat(txCat(t)).label,card?card.name+' ••'+card.last4:'',t.status||'posted',t.notes||'']
       .map(x=>'"'+(String(x).replace(/"/g,'""'))+'"');
   });
-  const csv=[cols.join(','),...rows.map(r=>r.join(','))].join('\r\n');
+  const csv=[cols.map(csvCell).join(','),...rows.map(r=>r.map(csvCell).join(','))].join('\r\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
   a.download='CardOS-transactions-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
   showToast('Exported '+txs.length+' transactions ✓');

@@ -1,5 +1,6 @@
-// Service-key card deletion. Auth-gated — only the card owner (or any authenticated user
-// for unowned/orphaned rows with user_id = null) can delete their own cards.
+// Service-key card deletion. Auth-gated — only the card OWNER can delete their cards.
+// (Null-owner "orphaned row" deletes were removed: they let any authed user delete
+// legacy rows they didn't own. All production rows are user-scoped.)
 const { createClient } = require('@supabase/supabase-js');
 
 const CORS = {
@@ -49,7 +50,7 @@ exports.handler = async (event) => {
     if (fetchErr || !card) {
       return { statusCode: 404, headers: CORS, body: JSON.stringify({ error: 'Card not found' }) };
     }
-    if (card.user_id !== null && card.user_id !== user.id) {
+    if (card.user_id !== user.id) {
       return { statusCode: 403, headers: CORS, body: JSON.stringify({ error: 'Not your card' }) };
     }
     const { error: delErr } = await supabase.from('cards').delete().eq('id', cardId);
@@ -75,7 +76,7 @@ exports.handler = async (event) => {
     return { statusCode: 500, headers: CORS, body: JSON.stringify({ error: listErr.message }) };
   }
 
-  const allowed = (ownedCards || []).filter(c => c.user_id === null || c.user_id === user.id);
+  const allowed = (ownedCards || []).filter(c => c.user_id === user.id);
   if (!allowed.length) {
     return { statusCode: 200, headers: CORS, body: JSON.stringify({ deleted: 0 }) };
   }
