@@ -1122,6 +1122,31 @@ body::after{content:'';position:fixed;inset:0;z-index:-1;pointer-events:none;opa
   .cyber-eyes{top:-24px;width:116px}
 }
 
+/* ══ Mobile glitch fixes: scroll-jank, overflow/cutoff, dense grids ══ */
+@media(max-width:768px){
+  /* Stop continuous transform/paint loops — floaty on every card/panel and the
+     full-screen scanline sweep repaint the page each frame and make scrolling
+     stutter on phones. Keep them on desktop where they're cheap. */
+  [data-theme="dark"] .dash-panel,
+  [data-theme="dark"] .rcard-wrap,
+  [data-theme="dark"] .attn-card,
+  [data-theme="dark"] .stat{animation:none!important}
+  .fab{animation:none!important}
+  [data-theme="dark"] body>.scanlines{animation:none!important;opacity:.22!important}
+  body::before{animation:none!important}
+  /* Hard stop against horizontal overflow / content cutoff */
+  html,body{max-width:100vw;overflow-x:hidden}
+  .page,.main{max-width:100vw;overflow-x:hidden}
+}
+@media(max-width:560px){
+  /* Collapse dense fixed-column inline grids (KPI/stat/result rows authored inline)
+     so they don't squish or overflow. Calendar (repeat(7)) and .stat-grid are
+     class-based with their own rules and are unaffected. */
+  [style*="grid-template-columns:repeat(4"],
+  [style*="grid-template-columns:repeat(3"],
+  [style*="grid-template-columns:1fr 1fr 1fr"]{grid-template-columns:1fr 1fr!important}
+}
+
 /* ══ Card grid ══ */
 .tile-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:22px}
 
@@ -6738,7 +6763,10 @@ async function approveRequest(email,btn){
     }
     document.addEventListener('mousemove',function(e){look(e.clientX,e.clientY);},{passive:true});
     document.addEventListener('touchstart',function(e){if(e.touches&&e.touches[0])look(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
-    document.addEventListener('touchmove',function(e){if(e.touches&&e.touches[0])look(e.touches[0].clientX,e.touches[0].clientY);},{passive:true});
+    // NOTE: intentionally NO touchmove handler. Updating the eyes on every scroll
+    // frame ran getBoundingClientRect (forced reflow) + style writes per frame, which
+    // made mobile scrolling stutter. touchstart (tap-to-look) + idle-wander keep the
+    // eyes alive without fighting the scroll.
     var svg=document.getElementById('eyes-svg');
     var reduce=window.matchMedia&&window.matchMedia('(prefers-reduced-motion:reduce)').matches;
     if(!reduce&&svg)setInterval(function(){
